@@ -1,0 +1,193 @@
+Week 1: Basics of Python Programming
+Session 1: Python Basics
+Short info about DSMP (3:38 - 6:57)
+About Python (7:00 – 24:30)
+Python Output/print function (24:30 – 38:37)
+Python Data Types (38:37 – 51:25)
+Python Variables (51:25 – 1:04:49)
+Python comments (1:04:49 – 1:09:09)
+Python Keywords and Identifiers (1:09:09 – 1:22:38)
+Python User Input (1:22:38 – 1:35:00)
+Python Type conversion (1:35:00 – 1:47:29)
+Python Literals (1:47:29 – 2:10:22)
+Session 2: Python Operators + if-else + Loops
+Start of the session (00:00:00 – 00:09:02)
+Python Operators (00:09:02 – 00:43:00)
+Python if-else (00:43:00 – 01:14:50)
+Python Modules (01:14:50 – 01:24:48)
+Python While Loop (01:24:48 – 01:48:03)
+Python for loop (01:48:03 – 02:11:34)
+Session 3: Python Strings
+Introduction (00:00:00 – 00:09:08)
+Solving Loop problems (00:00:08 – 00:47:10)
+Break, continue, pass statement in loops (00:47:10 – 01:06:42)
+Strings (01:06:42 – 1:14:15)
+String indexing (01:14:15 – 01:18:14)
+String slicing (01:18:14 – 01:27:06)
+Edit and delete a string (01:27:06 – 01:32:14)
+Operations on String (01:32:14 – 01:47:24)
+Common String functions (01:47:14 – 02:22:53)
+Session on Time complexity
+Start of the Session (00:00:00 – 00:11:22)
+PPT presentation on Time Complexity (Efficiency in Programming and Orders of Growth) (00:11:22 – 01:12:30)
+Examples (01:12:30 – 01:42:00)
+Week 1 Interview Questions
+
+
+
+
+Week 2: Python Data Types
+Session 4: Python Lists
+Introduction
+Array vs List
+How lists are stored in a memory
+Characteristics of Python List
+Code Example of Lists
+Create and access a list
+append(), extend(), insert()
+Edit items in a list
+Deleting items from a list
+Arithmetic, membership and loop operations on a List
+Various List functions
+List comprehension
+2 Ways to traverse a list
+Zip() function
+Python List can store any kind of objects
+Disadvantages of Python list
+Session 5: Tuples + Set + Dictionary
+Tuple
+Create and access a tuple
+Can we edit and add items to a tuple?
+Deletion
+Operations on tuple
+Tuple functions
+List vs tuple
+Tuple unpacking
+Zip () on tuple
+Set
+Create and access a set
+Can we edit and add items to a set?
+Deletion
+Operations on set
+set functions
+Frozen set (immutable set)
+Set comprehension
+Dictionary
+Create dictionary
+Accessing items
+Add, remove, edit key-value pairs
+Operations on dictionary
+Dictionary functions
+Dictionary comprehension
+Zip() on dictionary
+Nested comprehension
+Session 6: Python Functions
+Create function
+Arguments and parameters
+args and kwargs
+How to access documentation of a function
+How functions are executed in a memory
+Variable scope
+Nested functions with examples
+Functions are first-class citizens
+Deletion of function
+Returning of function
+Advantages of functions
+Lambda functions
+Higher order functions
+map(), filter(), reduce()
+Paid Session on Career QnA
+Array Interview Questions
+Week 2 Interview Questions
+Week 3: Object Oriented Programming (OOP)
+Session 7: OOP Part1
+What is OOP?
+What are classes and Objects?
+Banking application coding
+Methods vs Functions
+Class diagram
+Magic/Dunder methods
+What is the true benefit of constructor?
+Concept of ‘self’
+Create Fraction Class
+__str__, __add__, __sub__ , __mul__ , __truediv__
+Session 8: OOP Part2
+Revision of last session by solving problems
+How objects access attributes
+Attribute creation from outside of the class
+Reference Variables
+Mutability of Object
+Encapsulation
+Collection of objects
+Static variables and methods
+Session 9: OOP Part3
+Class Relationship
+Aggregation and aggregation class diagram
+Inheritance and Inheritance class diagram
+Constructor example
+Method Overriding
+Super keyword
+Super constructor
+Practice questions on Inheritance
+Types of Inheritance (Single, Multilevel, Hierarchical,Multiple )
+Hybrid Inheritance
+Code example and diamond problem
+Polymorphism
+Method Overriding and Method Overloading
+Operator Overloading
+Session on Abstraction
+What is Abstraction?
+Bank Example Hierarchy
+Abstract class
+Coding abstract class (BankApp Class) 
+Session on OOP Project
+Week 3 Interview Questions
+Week 4: Advanced Python:
+Session 10: File Handling + Serialization & Deserialization
+How File I/O is done
+Writing to a new text file
+What is open()?
+append()
+Writing many lines
+Saving a file
+Reading a file -> read() and readline()
+Using context manager -> with()
+Reading big file in chunks
+Seek and tell
+Working with Binary file
+Serialization and Deserialization
+JSON module -> dump() and load()
+Serialization and Deserialization of tuple, nested dictionary and custom object
+Pickling
+Pickle vs JSON
+Session 11: Exception Handling
+Syntax Error with Examples
+Exception with Examples
+Why we need to handle Exception?
+Exception Handling (Try-Except-Else-Finally)
+Handling Specific Error
+Raise Exception
+Create custom Exception
+Session 12: Decorators and Namespaces
+Namespaces
+Scope and LEGB rule
+Hands-on local, enclosing, global and built-in scope
+Decorators with Examples
+Session on Iterators
+What are iterators
+What are iterables
+How for loop works in Python?
+Making your own for loop
+Create your own range function
+Practical example to use iterator
+Session on Generator
+What is a generator?
+Why to use Generator?
+Yield vs Return
+Generator Expression
+Practical Examples
+Benefits of generator
+Session on Resume Building
+Session on GUI Development using Python
+GUI development using tkinter
+Week 4 Interview Questions

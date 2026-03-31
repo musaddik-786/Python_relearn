@@ -1,0 +1,57 @@
+from langchain_chroma import Chroma
+from langchain_openai import AzureOpenAIEmbeddings
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
+    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    chunk_size=1024  # Adding required chunk_size parameter
+)
+
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=int(os.getenv("CHUNK_SIZE", "800")),
+    chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "100")),
+    length_function=len,
+)
+
+loader = TextLoader("C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\mytext.txt", encoding="utf-8")
+documents = loader.load()
+# document_text = documents[0].page_content
+
+splitter = text_splitter.split_text(documents)
+
+my_dir = os.path.dirname(os.path.abspath(__file__))
+print(f"Current directory: {my_dir}")
+
+vectorstore = Chroma.from_documents(
+    chunks=splitter,
+    embedding=embeddings,
+    collection_name="my_collection",
+    persist_directory=my_dir
+    )
+
+
+
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\4.embeddings_my_querytopdf.py
+Traceback (most recent call last):
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\4.embeddings_my_querytopdf.py", line 28, in <module>
+    splitter = text_splitter.split_text(documents)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_text_splitters\character.py", line 158, in split_text
+    return self._split_text(text, self._separators)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_text_splitters\character.py", line 118, in _split_text
+    if re.search(separator_, text):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\re\__init__.py", line 176, in search
+    return _compile(pattern, flags).search(string)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: expected string or bytes-like object, got 'list'
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES>

@@ -1,9 +1,49 @@
-import os
-import json
-import logging
-from typing import Dict, Any, List, Optional
+4.embedding
+
+load_dotenv()
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
+    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    chunk_size=1024  # Adding required chunk_size parameter
+)
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=int(os.getenv("CHUNK_SIZE", "800")),
+    chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "100")),
+    length_function=len,
+)
+loader = TextLoader("C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\mytext.txt", encoding="utf-8")
+documents = loader.load() #THIS GIVES US A LIST OF DOCUMENT OBJECTS BUT WE NEED
+    # TO SPLIT THEM INTO CHUNKS AS DOCUMENT OBJECTS TO PASS TO CHROMA
+chunks = text_splitter.split_documents(documents)
+# my_dir = os.path.dirname(os.path.abspath(__file__))
+my_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "input")
+
+vectorstore = Chroma.from_documents(
+    documents=chunks, #NOW WE CAN PASS THE CHUNKS DIRECTLY TO CHROMA BECAUSE THEY ARE ALREADY DOCUMENT OBJECTS
+    embedding=embeddings,
+    collection_name="my_collection",
+    persist_directory=my_dir
+    )
+
+
+print(len(chunks))
+# print(f"first Chunk: {chunks[0][:100]}...")
+print(f"first Chunk: {chunks[0].page_content[:100]}...")
+
+
+
+retireier.py
+from langchain_chroma import Chroma
+from langchain_openai import AzureOpenAIEmbeddings
 from dotenv import load_dotenv
-from langchain.chains import LLMChain
+import os
+
+import logging
+from typing import Dict, Any, List
+# from langchain.chains import LLMChain
+from langchain_classic.chains.llm import LLMChain
 # from langchain.prompts import PromptTemplate
 from langchain_core.prompts import PromptTemplate
 # from langchain_community.chat_models import AzureChatOpenAI
@@ -11,15 +51,14 @@ from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 # from langchain_community.vectorstores import Chroma
 from langchain_chroma import Chroma
 # from langchain_community.embeddings import AzureOpenAIEmbeddings
-from azure.storage.blob import BlobServiceClient, ContainerClient
+# from azure.storage.blob import BlobServiceClient, ContainerClient
 from azure.core.exceptions import ResourceExistsError
 import re
-from datetime import datetime
-from urllib.parse import urlparse, unquote
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from Jarvis.MCP.common.phoenix_prompt import build_prompt
+# from datetime import datetime
+# from urllib.parse import urlparse, unquote
+# from Jarvis.MCP.common.phoenix_prompt import build_prompt
 
+import asyncio
 # Load environment variables
 load_dotenv()
 
@@ -27,90 +66,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ==================== DATABASE CONFIGURATION ====================
-class PostgreSQLPromptManager:
-    """Manages dynamic prompt fetching from PostgreSQL"""
-    
-    def __init__(self):
-        self.connection_params = {
-            "host": os.getenv("PGHOST", "jarvis-uw.postgres.database.azure.com"),
-            "port": int(os.getenv("PGPORT", "5432")),
-            "database": os.getenv("PGDATABASE", "postgres"),
-            "user": os.getenv("PGUSER", "Jarvisuwadmin"),
-            "password": os.getenv("PGPASSWORD", "Uwpassword!2025")
-        }
-
-       
-    
-    def get_connection(self):
-        """Establish database connection"""
-        try:
-            conn = psycopg2.connect(**self.connection_params)
-            return conn
-        except Exception as e:
-            logger.error(f"❌ Database connection failed: {str(e)}")
-            return None
-    
-    def get_prompt_and_extraction_rules(self, document_type: str) -> Optional[Dict]:
-        """
-        Fetch prompt and extraction rules from database by document type using SQL query.
-        
-        Query: SELECT prompt, extraction_rules FROM ref_prompt_library WHERE document_type = ?
-        
-        Args:
-            document_type: Document type name (e.g., 'quote', 'acord', 'inspection_report')
-        
-        Returns:
-            Dictionary with 'prompt' and 'extraction_rules' keys, or None if not found
-        """
-        conn = self.get_connection()
-        if not conn:
-            logger.warning(f"⚠️  No database connection - cannot fetch data for {document_type}")
-            return None
-        
-        try:
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            # Single SQL query to fetch both prompt and extraction rules
-            query = """
-            SELECT prompt, extraction_rules 
-            FROM ref_prompt_library 
-            WHERE LOWER(document_type) = LOWER(%s)
-            LIMIT 1
-            """
-            cur.execute(query, (document_type,))
-            result = cur.fetchone()
-            
-            if result and result['prompt']:
-                logger.info(f"✅ Fetched prompt and extraction rules for document type: {document_type}")
-                # Parse extraction_rules JSON string from database into Python dict
-                extraction_rules = {}
-                if result['extraction_rules']:
-                    try:
-                        if isinstance(result['extraction_rules'], str):
-                            extraction_rules = json.loads(result['extraction_rules'])
-                        else:
-                            extraction_rules = result['extraction_rules']
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"⚠️  Failed to parse extraction_rules JSON: {str(e)}")
-                        extraction_rules = {}
-                
-                return {
-                    'prompt': result['prompt'],
-                    'extraction_rules': extraction_rules
-                }
-            else:
-                logger.warning(f"⚠️  No data found for document type: {document_type}")
-                return None
-        except Exception as e:
-            logger.error(f"❌ Error fetching prompt and rules: {str(e)}")
-            return None
-        finally:
-            if conn:
-                conn.close()
-
-
-# Initialize PostgreSQL prompt manager
-prompt_manager = PostgreSQLPromptManager()
+# Initialize Azure OpenAI embeddings
 embeddings = AzureOpenAIEmbeddings(
     azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
     openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -120,156 +76,21 @@ embeddings = AzureOpenAIEmbeddings(
 )
 
 
-def group_attributes_by_category(attributes_dict: Dict[str, str]) -> Dict[str, Any]:
+def query_documents(vectordb: Any, user_query: str) -> str:
     """
-    Group extracted attributes into logical categories using LLM-based semantic categorization.
+    Answer user questions by querying vectorized document content.
     
-    Dynamically analyzes extracted underwriting attributes and groups them into semantic categories
-    based on context, without relying on hardcoded keyword mappings.
-    
-    The LLM determines the most logical grouping based on the specific fields present in the document.
-    """
-    
-    llm = AzureChatOpenAI(
-        openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-        temperature=0,
-        top_p=1
-    )
-    
-    # Create the dynamic categorization prompt
-    grouping_prompt = PromptTemplate(
-        input_variables=["attributes_json"],
-
-
-#PHOENIX HAS THE SAME PROMPT
-#         template="""You are a JSON data formatter for insurance underwriting documents.
-
-# The following JSON contains extracted attributes from a non-ACORD insurance submission form.
-# These fields were extracted using semantic search and LLM-based information retrieval from submission documents.
-
-# Your task is to group these fields logically based on semantic context.
-
-# Requirements:
-# 1. Group fields logically. The grouping is FLEXIBLE — create categories as needed based on the context of the fields present.
-
-# 2. Analyze the semantic meaning of each attribute name and value to determine the best category fit.
-
-# 3. Each attribute should appear in exactly one category.
-
-# 4. If an attribute doesn't fit standard categories, place it in "Other".
-
-# 5. Do NOT create empty categories.
-
-# INPUT ATTRIBUTES (extracted from non-ACORD submission form):
-# {attributes_json}
-
-# TASK:
-# 1. Analyze each attribute name and value semantically
-# 2. Identify groupings based on contextual meaning (e.g., "Named insured" → Insured category, "Year built" → Property category)
-# 3. Group all semantically related attributes together
-# 4. Create category names that are meaningful and clear for insurance underwriting context
-# 5. Preserve exact attribute names and values as provided
-
-# RESPONSE FORMAT (STRICT JSON ONLY):
-# Return ONLY valid JSON with this structure - no commentary, no markdown, no explanations:
-# {{
-#   "Category Name 1": {{
-#     "attribute_name_1": "value_1",
-#     "attribute_name_2": "value_2"
-#   }},
-#   "Category Name 2": {{
-#     "attribute_name_3": "value_3"
-#   }},
-#   "Other": {{
-#     "attribute_name_4": "value_4"
-#   }}
-# }}
-
-# CRITICAL RULES:
-# - Return ONLY the JSON object, nothing else
-# - Preserve exact attribute names (do NOT modify them)
-# - Preserve exact values (do NOT modify them)
-# - Category names should be descriptive and capitalized
-# - Ensure ALL attributes from input are included in output in exactly one category
-# - If no clear category fit, use "Other" category
-# """
-
-
-   template = build_prompt(
-
-        "UHJvbXB0VmVyc2lvbjoyOQ==",
-
-        input_variables = attributes_json,
-
-    )
-
-    )
-    
-    chain = LLMChain(llm=llm, prompt=grouping_prompt)
-    
-    try:
-        # Convert attributes dict to JSON string for the prompt
-        attributes_json = json.dumps(attributes_dict, indent=2)
-        
-        print("🧠 Grouping attributes using LLM semantic analysis...")
-        
-        # Get categorization from LLM
-        raw_response = chain.run({
-            "attributes_json": attributes_json
-        }).strip()
-        
-        # Parse the JSON response
-        try:
-            # Remove markdown code blocks if present
-            clean_response = re.sub(r"```(?:json)?|```", "", raw_response.strip())
-            grouped_data = json.loads(clean_response)
-            
-            # Validate the response
-            if isinstance(grouped_data, dict) and len(grouped_data) > 0:
-                # Ensure all categories contain dictionaries with content
-                cleaned_grouped = {}
-                for category, fields in grouped_data.items():
-                    if isinstance(fields, dict) and len(fields) > 0:
-                        cleaned_grouped[category] = fields
-                
-                if cleaned_grouped:
-                    print(f"✅ Successfully grouped attributes into {len(cleaned_grouped)} categories")
-                    return cleaned_grouped
-                else:
-                    logger.warning("No valid grouped data received from LLM, using flat structure")
-                    return {"All Attributes": attributes_dict}
-            else:
-                logger.warning("Invalid grouped data structure from LLM, using flat structure")
-                return {"All Attributes": attributes_dict}
-                
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
-            logger.warning(f"Could not parse grouping response from LLM: {raw_response}")
-            logger.warning(f"Error details: {e}")
-            # Fallback to flat structure
-            return {"All Attributes": attributes_dict}
-            
-    except Exception as e:
-        logger.error(f"Error in LLM-based attribute grouping: {e}")
-        # Fallback to flat structure
-        return {"All Attributes": attributes_dict}
-
-
-def extract_with_llm(vectordb: Any, extraction_rules: Dict[str, Dict], prompt_template: str) -> Dict[str, Any]:
-    """Extract values from vectorized content using semantic search with database-driven extraction rules
+    Performs semantic search on the vectorized content to find relevant chunks,
+    then uses LLM to generate a direct answer based on the context.
     
     Args:
-        vectordb: ChromaDB instance with embeddings
-        extraction_rules: Dictionary mapping attribute names to their extraction instructions
-                         Format: {"attr_name": {"description": "instruction text"}, ...}
-        prompt_template: Prompt template string fetched from database
+        vectordb: Loaded ChromaDB instance with embeddings
+        user_query: User's question as a string
     
     Returns:
-        Dictionary mapping attributes to extracted values
+        Direct answer string (not structured JSON)
     """
-    print(f"🔎 Extracting values using semantic search with database-driven rules...")
+    print(f"🔍 Processing query: {user_query}")
     
     llm = AzureChatOpenAI(
         openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -279,265 +100,343 @@ def extract_with_llm(vectordb: Any, extraction_rules: Dict[str, Dict], prompt_te
         temperature=0,
         top_p=1
     )
-
-    # Create prompt template from database content
-    # CRITICAL: Escape the JSON response format in the prompt so LangChain doesn't interpret braces as variables
-    # The database stores: {\"amount\": \"VALUE\"} and {\"amount\": null}
-    # We need to escape to: {{\"amount\": \"VALUE\"}} and {{\"amount\": null}}
-    escaped_template = prompt_template.replace(
-        '{\"amount\": \"VALUE\"}', 
-        '{{\"amount\": \"VALUE\"}}'
-    ).replace(
-        '{\"amount\": null}', 
-        '{{\"amount\": null}}'
+    
+    # Perform semantic search with large k value for better context
+    print(f"📚 Performing semantic search...")
+    relevant_chunks = vectordb.similarity_search(
+        user_query,
+        k=200  # Large k for comprehensive context
     )
     
-    attribute_prompt = PromptTemplate(
-        input_variables=["context", "attribute", "instruction"],
-        template=escaped_template
-    )
-    chain = LLMChain(llm=llm, prompt=attribute_prompt)
-    attribute_values = {}
+    if not relevant_chunks:
+        print("⚠️ No relevant chunks found in the document")
+        return "I could not find any relevant information in the document to answer your question."
     
-    # Iterate over extraction_rules dictionary: attribute_name -> attribute_info
-    for attribute_name, attribute_info in extraction_rules.items():
-        # Extract the instruction/description from the attribute info
-        instruction = attribute_info.get("description", "") if isinstance(attribute_info, dict) else ""
-        
-        print(f"🧠 Extracting: {attribute_name}")
-        
-        # Get focused search terms based on attribute type
-        search_terms = {
-            "abcd": "example terms"
-        }
-        
-        # Build comprehensive search query
-        search_query = attribute_name
-        for key, terms in search_terms.items():
-            if key in attribute_name.lower():
-                search_query = f"{attribute_name} {terms}"
-                break
-                
-        # Get relevant chunks with larger k value
-        relevant_chunks = vectordb.similarity_search(
-            search_query,
-            k=20  # Significantly increased for better context
-        )
-        
-        if not relevant_chunks:
-            attribute_values[attribute_name] = "Not Found"
-            continue
+    # Combine relevant chunks into context
+    context = "\n".join([chunk.page_content for chunk in relevant_chunks])
+    
+    # Create prompt for question answering
+    qa_prompt = PromptTemplate(
+        input_variables=["context", "question"],
+        template="""You are an expert assistant for answering questions about documents.
 
-        # Combine relevant chunks
-        context = "\n".join([chunk.page_content for chunk in relevant_chunks])
-        
-        try:
-            raw_response = chain.run({
-                "context": context,
-                "attribute": attribute_name,
-                "instruction": instruction
-            }).strip()
-            
-            # Parse the JSON response to extract the actual value
-            try:
-                # Remove markdown code blocks if present
-                clean_response = re.sub(r"```(?:json)?|```", "", raw_response.strip())
-                parsed_response = json.loads(clean_response)
-                value = parsed_response.get("amount", "Not Found")
-                
-                # Handle null values
-                if value is None:
-                    value = "Not Found"
-                else:
-                    value = str(value).strip()
-                
-                # Only keep non-empty values
-                if value and value.lower() not in ["not found", "not provided", "n/a", ""]:
-                    attribute_values[attribute_name] = value
-                else:
-                    attribute_values[attribute_name] = "Not Found"
-            except (json.JSONDecodeError, KeyError, TypeError) as e:
-                logger.warning(f"Could not parse JSON response for {attribute_name}: {raw_response}")
-                attribute_values[attribute_name] = "Not Found"
-                
-        except Exception as e:
-            logger.error(f"Error extracting {attribute_name}: {e}")
-            attribute_values[attribute_name] = "Not Found"
+Based on the provided document context, answer the user's question accurately and concisely.
 
-    return attribute_values
+QUESTION: {question}
 
-def _get_container_client_for_output(output_container_name: str) -> ContainerClient:
-    """Get container client for uploading outputs"""
-    connection_string = os.getenv("AZURE_BLOB_CONNECTION_STRING") or os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+CONTEXT:
+{context}
 
-    if connection_string:
-        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        return blob_service_client.get_container_client(output_container_name)
-
-    raise RuntimeError("No Azure Blob connection string found for uploading output")
-
-
-def _upload_bytes_to_container(container_client: ContainerClient, blob_name: str, data: bytes) -> str:
-    """Upload bytes to blob container and return URL"""
+ANSWER:
+Provide a clear, direct answer based only on the context provided. 
+If the answer is not found in the context, explicitly state "Not found in documents."
+Do not guess or use external knowledge.
+Keep your answer concise and relevant to the question."""
+    )
+    
+    chain = LLMChain(llm=llm, prompt=qa_prompt)
+    
     try:
-        container_client.create_container()
-    except ResourceExistsError:
-        pass
-    except Exception:
-        pass
+        print(f"Generating answer...")
+        answer = chain.run({
+            "context": context,
+            "question": user_query
+        }).strip()
+        
+        print(f"Answer generated successfully")
+        return answer
+        
+    except Exception as e:
+        logger.error(f"Error generating answer: {e}")
+        return f"Error processing your query: {str(e)}"
 
-    blob_client = container_client.get_blob_client(blob_name)
-    blob_client.upload_blob(data, overwrite=True)
-    return blob_client.url
 
-
-async def process_retrieval(vector_db_path: str, document_type: str) -> Dict[str, Any]:
-    """Main processing function for retrieval using semantic search with database-driven prompts
+async def process_query_retrieval(vector_db_path: str, query: str) -> Dict[str, Any]:
+    """
+    Main processing function for query-based document retrieval.
     
-    This function:
-    1. Fetches prompt and extraction rules from PostgreSQL based on document_type
-    2. Loads the vector database from vector_db_path
-    3. Extracts values for each attribute in extraction_rules using semantic search
-    4. Groups results by category from the extraction rules
-    5. Uploads results to blob storage
+    Takes a user query, performs semantic search on vectorized content,
+    and returns a direct answer without JSON extraction.
     
     Args:
         vector_db_path: Can be either:
-            1. Local absolute path from pdf_vectorizer output: /home/jarvis/rohan/Quote_Extraction_MCP/data/vec_db/pdf_name
+            1. Local absolute path from pdf_vectorizer output: /home/jarvis/rohan/Document_Query_MCP/data/vec_db/pdf_name
             2. Blob URL (fallback): https://... - will extract pdf name and construct local path
-        document_type: Document type for database lookup (e.g., 'Property_Detailed_Report', 'quote', 'acord')
-                      Uses this to fetch prompt and extraction rules from ref_prompt_library table
+        query: User's question as a string
     
     Returns:
-        Dict with extraction results and metadata
+        Dict with answer and metadata
     """
     try:
-        # Fetch prompt and extraction rules from database based on document type
-        logger.info(f"📊 Fetching prompt and extraction rules for document type: {document_type}")
-        db_data = prompt_manager.get_prompt_and_extraction_rules(document_type)
-        
-        if not db_data:
-            logger.warning(f"⚠️  Could not fetch data for {document_type} from database")
-            return {
-                "error": f"No data found in database for document type: {document_type}",
-                "document_type": document_type
-            }
-        
-        prompt_template = db_data['prompt']
-        extraction_rules = db_data['extraction_rules']
-        
-        if not extraction_rules:
-            logger.warning(f"⚠️  No extraction rules found for {document_type}")
-            return {
-                "error": f"No extraction rules found for document type: {document_type}",
-                "document_type": document_type
-            }
-        
-        logger.info(f"✅ Loaded {len(extraction_rules)} extraction rules from database")
-        
         # Handle both blob URLs and local paths
-        if vector_db_path.startswith(("http://", "https://")):
+        # if vector_db_path.startswith(("http://", "https://")):
             # This is a blob URL - extract the PDF name and construct local path
-            logger.warning(f"Received blob URL instead of local path. Extracting PDF name...")
-            path = unquote(urlparse(vector_db_path).path)
-            file_name_with_ext = os.path.basename(path)
-            pdf_name = os.path.splitext(file_name_with_ext)[0]
+        #     logger.warning(f"Received blob URL instead of local path. Extracting PDF name...")
+        #     path = unquote(urlparse(vector_db_path).path)
+        #     file_name_with_ext = os.path.basename(path)
+        #     pdf_name = os.path.splitext(file_name_with_ext)[0]
             
-            # Construct the local vector_db_path
-            vdb_base_path = os.getenv("VDB_PATH", "./data/vec_db")
-            vector_db_path = os.path.abspath(os.path.join(vdb_base_path, pdf_name))
-            logger.info(f"Reconstructed local vector_db_path: {vector_db_path}")
-        else:
+        #     # Construct the local vector_db_path
+        #     vdb_base_path = os.getenv("QUERY_VDB_PATH", "./data/vec_db")
+        #     vector_db_path = os.path.abspath(os.path.join(vdb_base_path, pdf_name))
+        #     logger.info(f"Reconstructed local vector_db_path: {vector_db_path}")
+        # else:
             # Ensure it's an absolute path
-            vector_db_path = os.path.abspath(vector_db_path)
+        vector_db_path = os.path.abspath(vector_db_path)
         
         # Get safe collection name from vector_db_path
-        # Remove all invalid characters: parentheses, brackets, special chars
         # ChromaDB only allows: [a-zA-Z0-9._-]
-        safe_name = os.path.basename(vector_db_path).lower()
-        safe_name = safe_name.replace(" ", "_").replace("-", "_").replace(".", "_")
-        # Remove parentheses and other special characters
-        safe_name = "".join(c if c.isalnum() or c in "._-" else "" for c in safe_name)
-        # Ensure it starts and ends with alphanumeric
-        safe_name = safe_name.strip("._-")
-        collection_name = f"{safe_name}_collection"
-        persist_directory = os.path.join(vector_db_path, "chroma_db", safe_name)
+        # safe_name = os.path.basename(vector_db_path).lower()
+        # safe_name = safe_name.replace(" ", "_").replace("-", "_").replace(".", "_")
+        # # Remove parentheses and other special characters
+        # safe_name = "".join(c if c.isalnum() or c in "._-" else "" for c in safe_name)
+        # # Ensure it starts and ends with alphanumeric
+        # safe_name = safe_name.strip("._-")
+        # collection_name = f"{safe_name}_collection"
+        # persist_directory = os.path.join(vector_db_path, "chroma_db", safe_name)
         
         # Verify the vector DB exists
-        if not os.path.exists(persist_directory):
-            raise FileNotFoundError(f"Vector database not found at: {persist_directory}")
+        if not os.path.exists(vector_db_path):
+            raise FileNotFoundError(f"Vector database not found at: {vector_db_path}")
         
         # Load the vector store
-        print(f"📚 Loading vector store from {persist_directory}")
+        print(f"📚 Loading vector store from {vector_db_path}")
         vectordb = Chroma(
             embedding_function=embeddings,
-            persist_directory=persist_directory,
-            collection_name=collection_name
+            persist_directory=vector_db_path,
+            # collection_name=collection_name
         )
         
-        # Extract values using semantic search with database-driven extraction rules and prompt
-        extracted_data = extract_with_llm(vectordb, extraction_rules, prompt_template)
+        # Get answer using semantic search and LLM
+        answer = query_documents(vectordb, query)
         
-        # Group attributes by logical categories
-        grouped_data = group_attributes_by_category(extracted_data)
-        
-        # Create local directory for outputs using the vector_db_path parent
-        local_output_dir = os.path.abspath(os.path.join(os.path.dirname(vector_db_path), "extraction_outputs"))
-        os.makedirs(local_output_dir, exist_ok=True)
-        
-        # Save locally first
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Get PDF name for metadata
         pdf_name = os.path.basename(vector_db_path)
-        local_filename = f"{pdf_name}_{document_type}_extraction_{timestamp}.json"
-        local_path = os.path.join(local_output_dir, local_filename)
-        
-        # Save JSON locally
-        with open(local_path, "w", encoding="utf-8") as f:
-            json.dump(grouped_data, f, indent=2)
-        print(f"💾 Saved local output to: {local_path}")
-        
-        # Upload results to blob storage
-        output_container = _get_container_client_for_output("output-results")
-        blob_name = local_filename
-        
-        json_data = json.dumps(grouped_data, indent=2).encode('utf-8')
-        output_url = _upload_bytes_to_container(output_container, blob_name, json_data)
         
         return {
-            "is_extracted": True,
+            "answer": answer,
             "metadata": {
-                "is_extracted": True,
                 "is_error": False,
                 "error_message": None,
-                "output_blob_url": output_url,
+                "query": query,
                 "source_pdf": pdf_name,
-                "local_output_path": local_path,
                 "vector_db_path": vector_db_path
             }
         }
         
     except Exception as e:
-        logger.exception("Error in retrieval process")
+        logger.exception("Error in query retrieval process")
         return {
-            "is_extracted": False,
+            "answer": None,
             "metadata": {
-                "is_extracted": False,
                 "is_error": True,
                 "error_message": str(e),
-                "output_blob_url": None
+                "query": query,
+                "source_pdf": None,
+                "vector_db_path": vector_db_path if 'vector_db_path' in locals() else None
             }
         }
 
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "is_extracted": false,
-    "metadata": {
-      "is_extracted": false,
-      "is_error": true,
-      "error_message": "cannot access local variable 'attributes_json' where it is not associated with a value",
-      "output_blob_url": null
-    }
-  }
-}
+
+
+
+
+# if __name__ == "__main__":
+#     await process_query_retrieval("C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\input","What is Contact Number")
+    
+if __name__ == "__main__":
+    result = asyncio.run(process_query_retrieval(
+        r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\input",
+        "Give me the Year Built"
+    ))
+    print(result)    
+
+
+mytext.txt
+Home Insurance Underwriting Submission Report
+Tailored for Tower Insurance (New Zealand)
+Submission Date: 06 Mar 2026
+This submission provides property, risk and documentation details to support underwriting assessment for a
+residential home in New Zealand. Information is structured to align with Tower Insurance's risk-based approach and
+policy responsibilities.
+1. Policyholder Details
+Field
+Details
+Name
+Alex and Jordan Taylor
+Contact Number
++64 21 555 0198
+Email
+alex.tayIor@example.co.nz
+Current Address
+Unit 12, 15 Market Road, Epsom, Auckland 1051
+Insured Property Address
+1234 Maple Ridge Lane, San Jose, CA 95123
+2. Property Overview
+Field
+Details
+Year Built
+1998 (renovations 2019, 2023)
+Construction Type
+Timber frame with monolithic (EIFS) cladding; timber weatherboard to rear
+extension
+Roof Material
+Colorsteel longrun (re-roofed 2019)
+Foundations
+Concrete slab with perimeter footings
+Storeys
+2
+Floor Area
+185 m* (per 2019 council records)
+Land Area
+612 m°
+3. Occupancy & Use
+Field
+Details
+Occupancy Type
+Owner-occupied
+Use
+Residential; small home office (administrative; no clients on-site)
+Number of Occupants
+2 adults, 1 child
+4. Sum Insured Information
+Field
+Details
+Rebuild Sum Insured
+$895,000
+Basis
+Quantity Surveyor (QS) rebuild estimate dated 12 Feb 2026; includes demolition
+and professional fees
+Other Structures
+Detached single garage (24 m*), timber decks (30 m*), retaining walls (approx. 25
+m cumulative length)
+5. Construction & Condition Notes
+Field
+Details
+Roof Condition
+Excellent; full re-roof 2019, compliance certificates attached
+Cladding Condition
+Monolithic cladding professionally recoated and detailed in 2023; routine
+maintenance log attached
+Electrical
+Partial rewire 2019; Electrical Safety Certificate (C.o.C.) attached
+Plumbing
+PEX manifold system upgraded 2020; no known leaks
+Heating
+2x heat pumps (serviced 2025), compliant wood burner (installed 2018; producer
+statement attached)
+Deferred Maintenance
+None noted; gutters and downpipes serviced Nov 2025
+6. Special Features or Non Standard Elements
+Field
+Details
+Non-standard Risk
+Monolithic (EIFS) cladding to main elevations
+Reports
+2023 Weathertightness Report (moisture readings within acceptable thresholds);
+2020 Engineering report for retaining walls
+Alterations
+2019 kitchen and bathroom renovations (building consent and CCC attached);
+2023 deck extension (record of work, no structural changes)
+7. Recent Renovations or Upgrades
+Field
+Details
+2019
+Re-roof (Colorsteel), partial rewire, kitchen & bathroom refurbishment; CCC issued
+20 Nov 2019
+2020
+Plumbing system upgrade (PEX)
+2023
+Deck extension; cladding recoating and flashings upgrade; maintenance
+programme established
+8. Hazard & Risk Information
+Field
+Details
+Earthquake
+Christchurch location; property constructed post-1990s; QS confirms standard
+foundation; no known EQ damage
+Flood/Overland Flow
+Property elevated above street level; council flood maps indicate low risk; LIM
+excerpt attached
+Coastal/Storm Surge
+Approx. 600 m from coast; wind-driven rain exposure considered in cladding
+maintenance
+Land Slip/Erosion
+No known slip history; 2020 geotechnical note for retaining walls attached
+9. Security Features
+Field
+Details
+Alarm
+Monitored alarm; perimeter sensors
+Locks
+Deadbolts to exterior doors; keyed window stays on ground floor
+CCTV
+2 exterior cameras covering driveway and rear yard
+10. Claims History (Past S Years)
+Date
+Type of Loss
+14 Jun 2022
+Water damage (burst flexi hose)
+Amount Paid
+$2,480
+Status
+Settled
+11. Supporting Documents (Attached/Available)
+· 2026 QS rebuild estimate (includes demolition, professional fees, inflationary provisions)
+· 2023 Weathertightness report and moisture readings
+· 2020 Engineer's letter and calculations for retaining walls
+· Electrical Compliance Certificate (2019) and producer statement for wood burner (2018)
+· LIM report excerpts (flood and coastal hazard maps)
+· Photo pack: elevations, roof, decks, joinery, site drainage
+· Maintenance log (2019-2026)
+12. Additional Notes for Underwriter
+The property's monolithic cladding has been proactively maintained with professional recoating and updated
+flashings. Moisture readings in 2023 fell within acceptable thresholds. The owners are committed to ongoing
+maintenance and have scheduled annual inspections. No known unconsented works. All renovations listed have
+supporting documentation.
+13. Broker / Advisor (If Applicable)
+Field
+Details
+Broker Name
+Casey Morgan
+Company Name
+Harbour Risk Advisory Ltd
+Contact
++64 9 555 0100 | casey.morgan@harbourrisk.co.nz
+Submission Notes
+Seeking Tower House Plus cover with standard excess; open to reasonable special
+terms for cladding if required.
+14. Additional details
+Field
+Details
+Organization Type
+LLC
+Address Line 1
+1234 Maple Ridge Lane
+City
+San Jose
+State
+California
+Zip Code
+95123
+Effective Date
+01-01-2026
+This document is prepared for underwriting assessment purposes only and does not confer cover. All cover is
+subject to Tower Insurance underwriting criteria, policy terms, limits and exclusions.
+
+
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\4.embeddings_my_querytopdf.py
+7
+first Chunk: Home Insurance Underwriting Submission Report
+Tailored for Tower Insurance (New Zealand)
+Submission ...
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> 
+
+137378\Desktop\newproject\RAG_PIPELINES\inputnv) PS C:\Users\2000137378\De
+🔍 Processing query: Give me the Year Built
+📚 Performing semantic search...
+INFO:httpx:HTTP Request: POST https://agenticinsuranceopenai.openai.azure.com/openai/deployments/text-embedding-3-large/embeddings?api-version=2025-01-01-preview "HTTP/1.1 200 OK"
+⚠️ No relevant chunks found in the documennt
+{'answer': 'I could not find any relevant information in the document to answer your question.', 'metadata': {'is_error': False, 'error_message': None, 'query': 'Give me the Year Built', 'source_pdf': 'input', 'vector_db_path': 'C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\input'}}
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES>
+

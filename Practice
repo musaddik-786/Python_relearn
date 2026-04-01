@@ -1,4 +1,67 @@
-4.embedding
+Root Fodler inside it there is RAGFOLDER inside it there is test.py
+inside ROOT FOLDER THERE IS Practice folder inside it there is input folder 
+
+
+from langchain_chroma import Chroma
+from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
+# from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain_classic.retrievers import MultiQueryRetriever
+from dotenv import load_dotenv
+import os
+load_dotenv()
+# embeddings (same as ingestion)
+embeddings = AzureOpenAIEmbeddings(
+   azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
+   openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+   openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+   azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
+)
+# load YOUR collection
+
+my_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Practice', 'input'))
+
+
+vectordb = Chroma(
+   embedding_function=embeddings,
+   persist_directory=my_dir,
+   collection_name="my_collection"
+)
+# LLM for query expansion
+llm = AzureChatOpenAI(
+   openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+   azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+   openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+   deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+   temperature=0
+)
+# base retriever (MMR)
+base_retriever = vectordb.as_retriever(
+   search_type="mmr",
+   search_kwargs={
+       "k":5,
+       "fetch_k":20
+   }
+)
+# multi query retriever
+retriever = MultiQueryRetriever.from_llm(
+   base_retriever,
+   llm
+)
+# query
+user_query = "Give me the Year Built"
+results = retriever.invoke(user_query)
+print("\nRetrieved chunks:\n")
+for doc in results:
+   print(doc.page_content[:200])
+   print("------")
+
+
+
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\Different_RAG_Systmes> python .\MultiQueryRetriver_notes2.py
+
+Retrieved chunks:
+
+embiddng.py
 
 load_dotenv()
 embeddings = AzureOpenAIEmbeddings(
@@ -33,410 +96,4 @@ print(len(chunks))
 print(f"first Chunk: {chunks[0].page_content[:100]}...")
 
 
-
-retireier.py
-from langchain_chroma import Chroma
-from langchain_openai import AzureOpenAIEmbeddings
-from dotenv import load_dotenv
-import os
-
-import logging
-from typing import Dict, Any, List
-# from langchain.chains import LLMChain
-from langchain_classic.chains.llm import LLMChain
-# from langchain.prompts import PromptTemplate
-from langchain_core.prompts import PromptTemplate
-# from langchain_community.chat_models import AzureChatOpenAI
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
-# from langchain_community.vectorstores import Chroma
-from langchain_chroma import Chroma
-# from langchain_community.embeddings import AzureOpenAIEmbeddings
-# from azure.storage.blob import BlobServiceClient, ContainerClient
-from azure.core.exceptions import ResourceExistsError
-import re
-# from datetime import datetime
-# from urllib.parse import urlparse, unquote
-# from Jarvis.MCP.common.phoenix_prompt import build_prompt
-
-import asyncio
-# Load environment variables
-load_dotenv()
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Initialize Azure OpenAI embeddings
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
-    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    chunk_size=1024
-)
-
-
-def query_documents(vectordb: Any, user_query: str) -> str:
-    """
-    Answer user questions by querying vectorized document content.
-    
-    Performs semantic search on the vectorized content to find relevant chunks,
-    then uses LLM to generate a direct answer based on the context.
-    
-    Args:
-        vectordb: Loaded ChromaDB instance with embeddings
-        user_query: User's question as a string
-    
-    Returns:
-        Direct answer string (not structured JSON)
-    """
-    print(f"🔍 Processing query: {user_query}")
-    
-    llm = AzureChatOpenAI(
-        openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-        temperature=0,
-        top_p=1
-    )
-    
-    # Perform semantic search with large k value for better context
-    print(f"📚 Performing semantic search...")
-    relevant_chunks = vectordb.similarity_search(
-        user_query,
-        k=200  # Large k for comprehensive context
-    )
-    
-    if not relevant_chunks:
-        print("⚠️ No relevant chunks found in the document")
-        return "I could not find any relevant information in the document to answer your question."
-    
-    # Combine relevant chunks into context
-    context = "\n".join([chunk.page_content for chunk in relevant_chunks])
-    
-    # Create prompt for question answering
-    qa_prompt = PromptTemplate(
-        input_variables=["context", "question"],
-        template="""You are an expert assistant for answering questions about documents.
-
-Based on the provided document context, answer the user's question accurately and concisely.
-
-QUESTION: {question}
-
-CONTEXT:
-{context}
-
-ANSWER:
-Provide a clear, direct answer based only on the context provided. 
-If the answer is not found in the context, explicitly state "Not found in documents."
-Do not guess or use external knowledge.
-Keep your answer concise and relevant to the question."""
-    )
-    
-    chain = LLMChain(llm=llm, prompt=qa_prompt)
-    
-    try:
-        print(f"Generating answer...")
-        answer = chain.run({
-            "context": context,
-            "question": user_query
-        }).strip()
-        
-        print(f"Answer generated successfully")
-        return answer
-        
-    except Exception as e:
-        logger.error(f"Error generating answer: {e}")
-        return f"Error processing your query: {str(e)}"
-
-
-async def process_query_retrieval(vector_db_path: str, query: str) -> Dict[str, Any]:
-    """
-    Main processing function for query-based document retrieval.
-    
-    Takes a user query, performs semantic search on vectorized content,
-    and returns a direct answer without JSON extraction.
-    
-    Args:
-        vector_db_path: Can be either:
-            1. Local absolute path from pdf_vectorizer output: /home/jarvis/rohan/Document_Query_MCP/data/vec_db/pdf_name
-            2. Blob URL (fallback): https://... - will extract pdf name and construct local path
-        query: User's question as a string
-    
-    Returns:
-        Dict with answer and metadata
-    """
-    try:
-        # Handle both blob URLs and local paths
-        # if vector_db_path.startswith(("http://", "https://")):
-            # This is a blob URL - extract the PDF name and construct local path
-        #     logger.warning(f"Received blob URL instead of local path. Extracting PDF name...")
-        #     path = unquote(urlparse(vector_db_path).path)
-        #     file_name_with_ext = os.path.basename(path)
-        #     pdf_name = os.path.splitext(file_name_with_ext)[0]
-            
-        #     # Construct the local vector_db_path
-        #     vdb_base_path = os.getenv("QUERY_VDB_PATH", "./data/vec_db")
-        #     vector_db_path = os.path.abspath(os.path.join(vdb_base_path, pdf_name))
-        #     logger.info(f"Reconstructed local vector_db_path: {vector_db_path}")
-        # else:
-            # Ensure it's an absolute path
-        vector_db_path = os.path.abspath(vector_db_path)
-        
-        # Get safe collection name from vector_db_path
-        # ChromaDB only allows: [a-zA-Z0-9._-]
-        # safe_name = os.path.basename(vector_db_path).lower()
-        # safe_name = safe_name.replace(" ", "_").replace("-", "_").replace(".", "_")
-        # # Remove parentheses and other special characters
-        # safe_name = "".join(c if c.isalnum() or c in "._-" else "" for c in safe_name)
-        # # Ensure it starts and ends with alphanumeric
-        # safe_name = safe_name.strip("._-")
-        # collection_name = f"{safe_name}_collection"
-        # persist_directory = os.path.join(vector_db_path, "chroma_db", safe_name)
-        
-        # Verify the vector DB exists
-        if not os.path.exists(vector_db_path):
-            raise FileNotFoundError(f"Vector database not found at: {vector_db_path}")
-        
-        # Load the vector store
-        print(f"📚 Loading vector store from {vector_db_path}")
-        vectordb = Chroma(
-            embedding_function=embeddings,
-            persist_directory=vector_db_path,
-            # collection_name=collection_name
-        )
-        
-        # Get answer using semantic search and LLM
-        answer = query_documents(vectordb, query)
-        
-        # Get PDF name for metadata
-        pdf_name = os.path.basename(vector_db_path)
-        
-        return {
-            "answer": answer,
-            "metadata": {
-                "is_error": False,
-                "error_message": None,
-                "query": query,
-                "source_pdf": pdf_name,
-                "vector_db_path": vector_db_path
-            }
-        }
-        
-    except Exception as e:
-        logger.exception("Error in query retrieval process")
-        return {
-            "answer": None,
-            "metadata": {
-                "is_error": True,
-                "error_message": str(e),
-                "query": query,
-                "source_pdf": None,
-                "vector_db_path": vector_db_path if 'vector_db_path' in locals() else None
-            }
-        }
-
-
-
-
-
-# if __name__ == "__main__":
-#     await process_query_retrieval("C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\input","What is Contact Number")
-    
-if __name__ == "__main__":
-    result = asyncio.run(process_query_retrieval(
-        r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\input",
-        "Give me the Year Built"
-    ))
-    print(result)    
-
-
-mytext.txt
-Home Insurance Underwriting Submission Report
-Tailored for Tower Insurance (New Zealand)
-Submission Date: 06 Mar 2026
-This submission provides property, risk and documentation details to support underwriting assessment for a
-residential home in New Zealand. Information is structured to align with Tower Insurance's risk-based approach and
-policy responsibilities.
-1. Policyholder Details
-Field
-Details
-Name
-Alex and Jordan Taylor
-Contact Number
-+64 21 555 0198
-Email
-alex.tayIor@example.co.nz
-Current Address
-Unit 12, 15 Market Road, Epsom, Auckland 1051
-Insured Property Address
-1234 Maple Ridge Lane, San Jose, CA 95123
-2. Property Overview
-Field
-Details
-Year Built
-1998 (renovations 2019, 2023)
-Construction Type
-Timber frame with monolithic (EIFS) cladding; timber weatherboard to rear
-extension
-Roof Material
-Colorsteel longrun (re-roofed 2019)
-Foundations
-Concrete slab with perimeter footings
-Storeys
-2
-Floor Area
-185 m* (per 2019 council records)
-Land Area
-612 m°
-3. Occupancy & Use
-Field
-Details
-Occupancy Type
-Owner-occupied
-Use
-Residential; small home office (administrative; no clients on-site)
-Number of Occupants
-2 adults, 1 child
-4. Sum Insured Information
-Field
-Details
-Rebuild Sum Insured
-$895,000
-Basis
-Quantity Surveyor (QS) rebuild estimate dated 12 Feb 2026; includes demolition
-and professional fees
-Other Structures
-Detached single garage (24 m*), timber decks (30 m*), retaining walls (approx. 25
-m cumulative length)
-5. Construction & Condition Notes
-Field
-Details
-Roof Condition
-Excellent; full re-roof 2019, compliance certificates attached
-Cladding Condition
-Monolithic cladding professionally recoated and detailed in 2023; routine
-maintenance log attached
-Electrical
-Partial rewire 2019; Electrical Safety Certificate (C.o.C.) attached
-Plumbing
-PEX manifold system upgraded 2020; no known leaks
-Heating
-2x heat pumps (serviced 2025), compliant wood burner (installed 2018; producer
-statement attached)
-Deferred Maintenance
-None noted; gutters and downpipes serviced Nov 2025
-6. Special Features or Non Standard Elements
-Field
-Details
-Non-standard Risk
-Monolithic (EIFS) cladding to main elevations
-Reports
-2023 Weathertightness Report (moisture readings within acceptable thresholds);
-2020 Engineering report for retaining walls
-Alterations
-2019 kitchen and bathroom renovations (building consent and CCC attached);
-2023 deck extension (record of work, no structural changes)
-7. Recent Renovations or Upgrades
-Field
-Details
-2019
-Re-roof (Colorsteel), partial rewire, kitchen & bathroom refurbishment; CCC issued
-20 Nov 2019
-2020
-Plumbing system upgrade (PEX)
-2023
-Deck extension; cladding recoating and flashings upgrade; maintenance
-programme established
-8. Hazard & Risk Information
-Field
-Details
-Earthquake
-Christchurch location; property constructed post-1990s; QS confirms standard
-foundation; no known EQ damage
-Flood/Overland Flow
-Property elevated above street level; council flood maps indicate low risk; LIM
-excerpt attached
-Coastal/Storm Surge
-Approx. 600 m from coast; wind-driven rain exposure considered in cladding
-maintenance
-Land Slip/Erosion
-No known slip history; 2020 geotechnical note for retaining walls attached
-9. Security Features
-Field
-Details
-Alarm
-Monitored alarm; perimeter sensors
-Locks
-Deadbolts to exterior doors; keyed window stays on ground floor
-CCTV
-2 exterior cameras covering driveway and rear yard
-10. Claims History (Past S Years)
-Date
-Type of Loss
-14 Jun 2022
-Water damage (burst flexi hose)
-Amount Paid
-$2,480
-Status
-Settled
-11. Supporting Documents (Attached/Available)
-· 2026 QS rebuild estimate (includes demolition, professional fees, inflationary provisions)
-· 2023 Weathertightness report and moisture readings
-· 2020 Engineer's letter and calculations for retaining walls
-· Electrical Compliance Certificate (2019) and producer statement for wood burner (2018)
-· LIM report excerpts (flood and coastal hazard maps)
-· Photo pack: elevations, roof, decks, joinery, site drainage
-· Maintenance log (2019-2026)
-12. Additional Notes for Underwriter
-The property's monolithic cladding has been proactively maintained with professional recoating and updated
-flashings. Moisture readings in 2023 fell within acceptable thresholds. The owners are committed to ongoing
-maintenance and have scheduled annual inspections. No known unconsented works. All renovations listed have
-supporting documentation.
-13. Broker / Advisor (If Applicable)
-Field
-Details
-Broker Name
-Casey Morgan
-Company Name
-Harbour Risk Advisory Ltd
-Contact
-+64 9 555 0100 | casey.morgan@harbourrisk.co.nz
-Submission Notes
-Seeking Tower House Plus cover with standard excess; open to reasonable special
-terms for cladding if required.
-14. Additional details
-Field
-Details
-Organization Type
-LLC
-Address Line 1
-1234 Maple Ridge Lane
-City
-San Jose
-State
-California
-Zip Code
-95123
-Effective Date
-01-01-2026
-This document is prepared for underwriting assessment purposes only and does not confer cover. All cover is
-subject to Tower Insurance underwriting criteria, policy terms, limits and exclusions.
-
-
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\4.embeddings_my_querytopdf.py
-7
-first Chunk: Home Insurance Underwriting Submission Report
-Tailored for Tower Insurance (New Zealand)
-Submission ...
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> 
-
-137378\Desktop\newproject\RAG_PIPELINES\inputnv) PS C:\Users\2000137378\De
-🔍 Processing query: Give me the Year Built
-📚 Performing semantic search...
-INFO:httpx:HTTP Request: POST https://agenticinsuranceopenai.openai.azure.com/openai/deployments/text-embedding-3-large/embeddings?api-version=2025-01-01-preview "HTTP/1.1 200 OK"
-⚠️ No relevant chunks found in the documennt
-{'answer': 'I could not find any relevant information in the document to answer your question.', 'metadata': {'is_error': False, 'error_message': None, 'query': 'Give me the Year Built', 'source_pdf': 'input', 'vector_db_path': 'C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\input'}}
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES>
 

@@ -1,51 +1,166 @@
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\Different_RAG_Systmes> python .\MultiQueryRetriver_notes2.py
+from sqlmodel import Session, select
+# from models import RefEligibilityCheck ,  AgentSubmissionIntake, AgentEligibility
+from db import get_engine
+from models import RefEligibilityCheck ,  AgentSubmissionIntake 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from sqlalchemy import and_
+from typing import Any
 
-Retrieved chunks:
+def process_sanction_and_eligibility(LOB: str,is_sanctioned: str) -> dict:
+    """
+    1. Extract is_Sanctioned (NO DEFAULTS)
+    2. Decide Eligible / Not Eligible
+    3. Fetch rule from ref_eligibility_check
+    4. Fetch latest reference_number from agent_submission_intake
+    5. Insert into agent_eligibility
+    6. Return combined response
+    """
 
-Timber frame with monolithic (EIFS) cladding; timber weatherboard to rear
-extension
-Roof Material
-Colorsteel longrun (re-roofed 2019)
-Foundations
-Concrete slab with perimeter footings
-Storeys
-2
-Floor 
-------
-m cumulative length)
-5. Construction & Condition Notes
-Field
-Details
-Roof Condition
-Excellent; full re-roof 2019, compliance certificates attached
-Cladding Condition
-Monolithic cladding professionally
-------
-Home Insurance Underwriting Submission Report
-Tailored for Tower Insurance (New Zealand)
-Submission Date: 06 Mar 2026
-This submission provides property, risk and documentation details to support under
-------
-Reports
-2023 Weathertightness Report (moisture readings within acceptable thresholds);
-2020 Engineering report for retaining walls
-Alterations
-2019 kitchen and bathroom renovations (building consent a
-------
-Amount Paid
-$2,480
-Status
-Settled
-11. Supporting Documents (Attached/Available)
-· 2026 QS rebuild estimate (includes demolition, professional fees, inflationary provisions)
-· 2023 Weathertightness rep
-------
-maintenance and have scheduled annual inspections. No known unconsented works. All renovations listed have
-supporting documentation.
-13. Broker / Advisor (If Applicable)
-Field
-Details
-Broker Name
-Case
-------
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\Different_RAG_Systmes> 
+
+
+    line_of_business = LOB
+    is_sanctioned = is_sanctioned
+
+
+
+
+    # ---------- VALIDATION ----------
+    # if not isinstance(mcp_result, dict):
+    #     return {
+    #         "status": False,
+    #         "error": "Invalid MCP result format (expected dict)"
+    #     }
+
+
+    # results = mcp_result.get("results")
+    # if not isinstance(results, list) or not results:
+    #     return {
+    #         "status": False,
+    #         "error": "'results' missing or empty in MCP response"
+    #     }
+
+    # record = results[0]
+
+    # if "is_Sanctioned" not in record:
+    #     return {
+    #         "status": False,
+    #         "error": "'is_Sanctioned' field missing in MCP response"
+    #     }
+
+    # is_sanctioned = record["is_Sanctioned"]
+
+    # if not isinstance(is_sanctioned, bool):
+    #     return {
+    #         "status": False,
+    #         "error": "'is_Sanctioned' must be boolean"
+    #     }
+
+    # ---------- DECISION ----------
+    eligibility_status = "Not Eligible" if is_sanctioned else "Eligible"
+
+    # ---------- DB FETCH ----------
+    engine = get_engine()
+    with Session(engine) as session:
+
+
+        # ---------- FETCH LATEST reference_number ----------
+        latest_ref_stmt = (
+            select(AgentSubmissionIntake)
+            .order_by(AgentSubmissionIntake.id.desc())
+        )
+        latest_submission = session.exec(latest_ref_stmt).first()
+        print("LatestSubmission",latest_submission)
+
+        if not latest_submission or not latest_submission.reference_number:
+            return {
+                "status": False,
+                "error": "No reference_number found in agent_submission_intake"
+            }
+
+        reference_number = latest_submission.reference_number
+
+        print("This is reference number",reference_number)
+
+        stmt = select(RefEligibilityCheck).where(
+            RefEligibilityCheck.eligibility_status == eligibility_status
+        )
+
+        # stmt = select(RefEligibilityCheck).where(
+        #     and_(
+        #         RefEligibilityCheck.eligibility_status == eligibility_status,
+        #         RefEligibilityCheck.line_of_business == LOB
+        #     )
+        # )
+
+        row = session.exec(stmt).first()
+
+        if not row:
+            return {
+                "status": False,
+                "error": f"No row found for Eligibility Status = '{eligibility_status}'"
+            }
+
+        try: 
+            # now = datetime.now()
+
+            # formatted_datetime = now.strftime("%d%m%Y %I:%M:%S %p")
+            # now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
+            india_tz = ZoneInfo("Asia/Kolkata")
+            current_time_ist = datetime.now(india_tz)
+            formatted_time = current_time_ist.strftime('%Y-%m-%d %H:%M:%S')
+            # formatted_datetime = now_ist.strftime("%d%m%Y %I:%M:%S %p")
+        
+        except Exception as e:
+            return{
+            "status" : False,
+            "error": f"Error generating date and time: {e}"
+            }
+
+        print(row.eligibility_status,row.reason_summary,row.line_of_business)
+
+        # agent_row = json.dump(
+        #    reference_number=reference_number,
+        #    eligibility_status=row.eligibility_status,
+        #    reason_summary=row.reason_summary,
+        #    line_of_business=row.line_of_business,
+        #    location_risk_zone=row.location_risk_zone,
+        #    business_type=row.business_type,
+        #    licensing_and_sanction_check=row.licensing_and_sanction_check,
+        #    source_of_check=row.source_of_check,
+        #    approval_flag = row.approval_flag,
+        #    eligibility_check_date_time= formatted_time
+        # )
+
+        # session.add(agent_row)
+        session.commit()
+        # session.refresh(agent_row)
+
+
+
+        # # ---------- RESPONSE ----------
+        # return {
+        #     "status": True,
+        #     "reference_number" : reference_number,
+        #     "eligibility_status": row.eligibility_status,
+        #     "reason_summary": row.reason_summary,
+        #     "line_of_business": row.line_of_business,
+        #     "location_risk_zone": row.location_risk_zone,
+        #     "business_type": row.business_type,
+        #     "licensing_and_sanction_check": row.licensing_and_sanction_check,
+        #     "source_of_check": row.source_of_check,
+        #     "approval_flag": row.approval_flag,
+        #     "eligibility_check_date_time": formatted_time
+        # }
+
+
+if __name__ == "__main__":
+    process_sanction_and_eligibility("RESIDENTIAL PROPERTY", "true")
+    
+
+(venv) Jarvis@JarvisPhase2:~/Musaddique/Licensing_and_Sanctiontable$ python3 database.py 
+LatestSubmission id=9 reference_number='19C669E626509D51'
+This is reference number 19C669E626509D51
+Not Eligible Entity found in sanction list. Commercial Property
+
+basically it should pick the row based on lob and eligibility status ie true false , but for both true false it seems to pick Not Eligib;e

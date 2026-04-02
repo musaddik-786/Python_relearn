@@ -1,166 +1,303 @@
-from sqlmodel import Session, select
-# from models import RefEligibilityCheck ,  AgentSubmissionIntake, AgentEligibility
-from db import get_engine
-from models import RefEligibilityCheck ,  AgentSubmissionIntake 
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from sqlalchemy import and_
-from typing import Any
-
-def process_sanction_and_eligibility(LOB: str,is_sanctioned: str) -> dict:
-    """
-    1. Extract is_Sanctioned (NO DEFAULTS)
-    2. Decide Eligible / Not Eligible
-    3. Fetch rule from ref_eligibility_check
-    4. Fetch latest reference_number from agent_submission_intake
-    5. Insert into agent_eligibility
-    6. Return combined response
-    """
+there is JarvisAgen_2.0 folder in it there is Jarvis Folder in that there is MCP folder in MCp folder there is common folder inside commmon folder there is phoenix_promot.py
+from phoenix.client import Client
+import os
+from functools import lru_cache
 
 
+PHOENIX_API_KEY = os.getenv("PHOENIX_API_KEY")
 
-    line_of_business = LOB
-    is_sanctioned = is_sanctioned
-
-
+PHOENIX_ENDPOINT = os.getenv("PHOENIX_ENDPOINT")
 
 
-    # ---------- VALIDATION ----------
-    # if not isinstance(mcp_result, dict):
-    #     return {
-    #         "status": False,
-    #         "error": "Invalid MCP result format (expected dict)"
-    #     }
+phoenix_client = Client(
+
+    base_url=PHOENIX_ENDPOINT,
+
+    api_key=PHOENIX_API_KEY
+
+)
 
 
-    # results = mcp_result.get("results")
-    # if not isinstance(results, list) or not results:
-    #     return {
-    #         "status": False,
-    #         "error": "'results' missing or empty in MCP response"
-    #     }
+@lru_cache
+def get_prompt_template(prompt_version_id:str):
 
-    # record = results[0]
+    prompt_stored = phoenix_client.prompts.get(
 
-    # if "is_Sanctioned" not in record:
-    #     return {
-    #         "status": False,
-    #         "error": "'is_Sanctioned' field missing in MCP response"
-    #     }
+        prompt_version_id=prompt_version_id
 
-    # is_sanctioned = record["is_Sanctioned"]
+    )
 
-    # if not isinstance(is_sanctioned, bool):
-    #     return {
-    #         "status": False,
-    #         "error": "'is_Sanctioned' must be boolean"
-    #     }
+    prompt_messages = prompt_stored._template["messages"]
 
-    # ---------- DECISION ----------
-    eligibility_status = "Not Eligible" if is_sanctioned else "Eligible"
+    system_prompt = next(
 
-    # ---------- DB FETCH ----------
-    engine = get_engine()
-    with Session(engine) as session:
+        (
 
+            item["content"][0]["text"]
 
-        # ---------- FETCH LATEST reference_number ----------
-        latest_ref_stmt = (
-            select(AgentSubmissionIntake)
-            .order_by(AgentSubmissionIntake.id.desc())
-        )
-        latest_submission = session.exec(latest_ref_stmt).first()
-        print("LatestSubmission",latest_submission)
+            for item in prompt_messages
 
-        if not latest_submission or not latest_submission.reference_number:
-            return {
-                "status": False,
-                "error": "No reference_number found in agent_submission_intake"
-            }
+            if item.get("role") == "system"
 
-        reference_number = latest_submission.reference_number
+        ),
 
-        print("This is reference number",reference_number)
+        None
 
-        stmt = select(RefEligibilityCheck).where(
-            RefEligibilityCheck.eligibility_status == eligibility_status
+    )
+
+    if not system_prompt:
+
+        raise ValueError(
+            "Phoenix prompt missing"
         )
 
-        # stmt = select(RefEligibilityCheck).where(
-        #     and_(
-        #         RefEligibilityCheck.eligibility_status == eligibility_status,
-        #         RefEligibilityCheck.line_of_business == LOB
-        #     )
-        # )
-
-        row = session.exec(stmt).first()
-
-        if not row:
-            return {
-                "status": False,
-                "error": f"No row found for Eligibility Status = '{eligibility_status}'"
-            }
-
-        try: 
-            # now = datetime.now()
-
-            # formatted_datetime = now.strftime("%d%m%Y %I:%M:%S %p")
-            # now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
-            india_tz = ZoneInfo("Asia/Kolkata")
-            current_time_ist = datetime.now(india_tz)
-            formatted_time = current_time_ist.strftime('%Y-%m-%d %H:%M:%S')
-            # formatted_datetime = now_ist.strftime("%d%m%Y %I:%M:%S %p")
-        
-        except Exception as e:
-            return{
-            "status" : False,
-            "error": f"Error generating date and time: {e}"
-            }
-
-        print(row.eligibility_status,row.reason_summary,row.line_of_business)
-
-        # agent_row = json.dump(
-        #    reference_number=reference_number,
-        #    eligibility_status=row.eligibility_status,
-        #    reason_summary=row.reason_summary,
-        #    line_of_business=row.line_of_business,
-        #    location_risk_zone=row.location_risk_zone,
-        #    business_type=row.business_type,
-        #    licensing_and_sanction_check=row.licensing_and_sanction_check,
-        #    source_of_check=row.source_of_check,
-        #    approval_flag = row.approval_flag,
-        #    eligibility_check_date_time= formatted_time
-        # )
-
-        # session.add(agent_row)
-        session.commit()
-        # session.refresh(agent_row)
+    return system_prompt
 
 
 
-        # # ---------- RESPONSE ----------
-        # return {
-        #     "status": True,
-        #     "reference_number" : reference_number,
-        #     "eligibility_status": row.eligibility_status,
-        #     "reason_summary": row.reason_summary,
-        #     "line_of_business": row.line_of_business,
-        #     "location_risk_zone": row.location_risk_zone,
-        #     "business_type": row.business_type,
-        #     "licensing_and_sanction_check": row.licensing_and_sanction_check,
-        #     "source_of_check": row.source_of_check,
-        #     "approval_flag": row.approval_flag,
-        #     "eligibility_check_date_time": formatted_time
-        # }
+def build_prompt(
+
+    prompt_version_id:str,
+
+    **kwargs
+
+)->str:
+
+    template = get_prompt_template(
+
+        prompt_version_id
+
+    )
+
+    return template.format(
+
+        **kwargs
+
+    )
 
 
-if __name__ == "__main__":
-    process_sanction_and_eligibility("RESIDENTIAL PROPERTY", "true")
-    
 
-(venv) Jarvis@JarvisPhase2:~/Musaddique/Licensing_and_Sanctiontable$ python3 database.py 
-LatestSubmission id=9 reference_number='19C669E626509D51'
-This is reference number 19C669E626509D51
-Not Eligible Entity found in sanction list. Commercial Property
 
-basically it should pick the row based on lob and eligibility status ie true false , but for both true false it seems to pick Not Eligib;e
+def get_prompt_template(prompt_version_id:str):
+   prompt_stored = phoenix_client.prompts.get(
+       prompt_version_id=prompt_version_id
+   )
+   prompt_messages = prompt_stored._template["messages"]
+   system_prompt = next(
+       (
+           item["content"][0]["text"]
+           for item in prompt_messages
+           if item.get("role") == "system"
+       ),
+       None
+   )
+   return system_prompt
+
+
+
+in same MCP folder there are multiple folders for eg layoutdetection folder inside that there is classifeir.py
+
+from dotenv import load_dotenv
+import os
+from openai import AzureOpenAI  # ✅ Correct import for Azure OpenAI
+from ..MCP.common.phoenix_prompt import build_prompt
+
+# Load environment variables
+load_dotenv()
+
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+
+if not (AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_VERSION and AZURE_OPENAI_API_KEY and AZURE_OPENAI_CHAT_DEPLOYMENT):
+    raise RuntimeError("Azure OpenAI env vars missing. Please set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_API_KEY and AZURE_OPENAI_CHAT_DEPLOYMENT")
+
+# ✅ Create Azure OpenAI client
+client = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version=AZURE_OPENAI_API_VERSION,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+)
+
+def classify_document(document_content):
+    text = document_content.get("text", "")
+    text_new = {text[:2000]}
+
+
+
+
+    prompt = build_prompt(
+
+        "UHJvbXB0VmVyc2lvbjoyMA==",
+
+        text_new=text_new,
+
+    )
+    # print(prompt)
+
+
+    response = client.chat.completions.create(
+        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=4,
+        temperature=0.0
+    )
+
+    try:
+        return response.choices[0].message.content.strip()
+    except Exception:
+        return getattr(response.choices[0].message, "content", "").strip()
+
+
+in the same MCP folder ther eis testmain.py
+
+from fastapi import FastAPI
+
+from fastapi.middleware.cors import CORSMiddleware
+
+from fastapi_mcp import FastApiMCP
+
+import uvicorn 
+ 
+from test_email_router import router as email_router
+
+from email_reader_mcp.email_handler import get_latest_email, start_email_polling, stop_email_polling
+
+from contextlib import asynccontextmanager
+
+# from data_extractor_mcp.image_processor import process_input_folder_on_startup
+
+import asyncio
+
+from email_output_saver_mcp.email_output_saver import start_output_saver_polling, stop_output_saver_polling
+
+#custom_model_dataextractor
+from custom_model_dataextractor_mcp.image_processor import process_input_folder_on_startup
+
+# risk type checker mcp
+
+
+# Risk score Calculator MCP 
+# from risk_score_calculator_mcp.risk_calculator import RuleBasedRiskCalculator 
+
+from risk_data_capture_mcp.handler import capture_risk_data
+
+
+#accept/reject_risk_functionality_mcp
+from accept_reject_risk_functionality_mcp import agent_core
+from accept_reject_risk_functionality_mcp.agent_core import process_risk_from_blob, RiskThresholds
+
+
+
+async def _start_processing_task() -> None:
+    """
+    Create and store a background task that runs the processor.
+    This returns immediately after scheduling the task.
+    """
+    # schedule background processing
+    task = asyncio.create_task(process_input_folder_on_startup())
+    # stash on the running app (will be attached in lifespan)
+    return task
+
+async def _stop_processing_task(task: asyncio.Task) -> None:
+    """
+    Cancel and await the background task if it's still running.
+    """
+    if task and not task.done():
+        task.cancel()
+        try:
+            await task
+        except Exception:
+            # swallow exceptions on shutdown
+            pass
+
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Startup
+#     await start_email_polling()
+#     yield
+#     # Shutdown
+#     await stop_email_polling()
+#     # Startup: schedule the processing task and attach to app.state
+#     try:
+#         app.state.processing_task = await _start_processing_task()
+#     except Exception:
+#         app.state.processing_task = None
+
+#     yield
+
+#     # Shutdown: cancel the task if running
+#     task = getattr(app.state, "processing_task", None)
+#     if task:
+#         await _stop_processing_task(task)
+
+#     # Startup: perform a single upload pass
+#     await start_output_saver_polling()
+#     yield
+#     # Shutdown: no-op
+#     await stop_output_saver_polling()
+
+
+app = FastAPI(docs_url="/docs")
+
+# app = FastAPI(lifespan=lifespan)
+
+def apply_cors(app: FastAPI):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+def create_sub_app(title: str, description: str, version: str = "0.1.0") -> FastAPI:
+    app = FastAPI(title=title, description=description, version=version)
+    #app = FastAPI(title=title, description=description, version=version, lifespan=lifespan)
+    apply_cors(app)
+    return app
+
+apply_cors(app)
+
+email_intent_agent_app = create_sub_app(title="email_intent_agent_mcps", description="role is to handle the initial stage of the underwriting workflow — focused solely on understanding the incoming emails")
+email_intent_agent_app.include_router(email_router)
+FastApiMCP(email_intent_agent_app, include_operations=["email_reader_mcp","attachment_checker_mcp","email_attachment_mcp","layout_detection_mcp",
+                                                       "document_extract_mcp","excel_loader_mcp", "pdf_vectorizer_mcp", "retriever_mcp",
+                                                       "email_processed_mcp","risk_type_checker_mcp","renewal_checker_mcp",
+                                                       "Licensing_and_Sanction_Checker_MCP","risk_score_calculator_mcp","Json_Reader_Read",
+                                                       "accept_reject_risk_functionality_mcp","attachment_summary_mcp","query_pdf_vectorizer_mcp",
+                                                       "query_retriever_mcp", "write_email_to_excel","guidewire_quote_mcp","email_draft_mcp",
+                                                       "Quote_Generator_MCP","guidewire_bind_and_issue_mcp","peril_data_capture_mcp",
+                                                       "peril_data_capture_res_mcp","risk_score_calculator_res_mcp"]).mount_http()
+
+#"risk_data_capture_mcp" we replaced with perils_data_capture in operation id
+
+#app.mount("/mcp",email_reader_app)
+app.mount("/api/v1/email_intent_agent",email_intent_agent_app)
+
+if __name__=="__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8658)
+(mcp_venv) Jarvis@JarvisPhase2:~/Musaddique/JarvisAgent_2.0/Jarvis/MCP$ python3 test_main.py 
+📍 Token storage path: /home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/token/token.pickle
+
+======================================================================
+🚀 GMAIL_WATCH INITIALIZED - AUTO-STARTING SCHEDULER
+======================================================================
+📍 Token found at: /home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/token/token.pickle
+⏱️  Scheduler will refresh token every 72 hours
+======================================================================
+
+✅ Token refresh scheduler STARTED (runs every 72 hours)
+   Next refresh: 2026-04-05 05:18:23
+Traceback (most recent call last):
+  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/test_main.py", line 21, in <module>
+    from test_email_router import router as email_router
+  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/test_email_router.py", line 7, in <module>
+    from email_reader_mcp.email_handler import get_latest_email, start_email_polling, stop_email_polling
+  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/email_reader_mcp/email_handler.py", line 15, in <module>
+    from .openai_helper import analyze_email_with_ai
+  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/email_reader_mcp/openai_helper.py", line 3, in <module>
+    from ..MCP.common.phoenix_prompt import build_prompt
+ImportError: attempted relative import beyond top-level package
+

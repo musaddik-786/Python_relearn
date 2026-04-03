@@ -1,362 +1,62 @@
+this was my router.py
 
 
-import requests
-import json
-
-BASE_URL = "http://localhost:8751/api/v1/eligibility_agent/data_filler_mcp"
-
-
-def run_test():
-    # payload = {
-    #     "jsonrpc": "2.0",
-    #     "id": 1,
-    #     "result": {
-    #         "status": True,
-    #         "results": [
-    #             {
-    #                 "Extracted Name": "Berkshire Hathaway",
-    #                 "is_Sanctioned": True
-    #             }
-    #         ]
-    #     }
-    # }
-
-
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "result": {
-        "status": True,
-        "results": [
-            {
-            "Extracted Name": "Berkshire Hathaway",
-            "is_Sanctioned": True
-            }
-        ],
-        "Data_Filler": [
-            {
-            "reference_number": "1123123123",
-            "eligibility_status": "Eligible",
-            "eligibility_check_date_time" : "2026-02-16 18:59:00",
-            "reason_summary": "Within sum insured limits and approved risk zone",
-            "line_of_business": "Commercial Property",
-            "location_risk_zone": "Medium",
-            "business_type": "New Business",
-            "licensing_sanction_check": "Cleared",
-            "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-            "approval_flag": False,
-            "approval_date_time": "2026-03-01 2:26:38",
-            # "created_at" : "2026-02-01 15:15:15.123153",
-            "Table_name": "dummy_agent_eligibility"
-            },
-            {
-            "reference_number": "123123123123",
-            "eligibility_status": "Eligible",
-            "eligibility_check_date_time" : "2026-02-16 18:59:00",            
-            "reason_summary": "Within sum insured limits and approved risk zone",
-            "line_of_business": "Commercial Property",
-            "location_risk_zone": "Medium",
-            "business_type": "New Business",
-            "licensing_sanction_check": "Cleared",
-            "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-            "approval_flag": False,
-            "approval_date_time": "2026-03-01 2:26:38",
-            # "created_at" : "2026-02-01 15:15:15.123153",            
-            "Table_name": "dummy_agent_eligibility"
-            }
-        ]
-        }
-        }
-    try:
-        resp = requests.post(BASE_URL, json=payload, timeout=120)
-        print("HTTP Status:", resp.status_code)
-
-        try:
-            print(json.dumps(resp.json(), indent=4))
-        except Exception:
-            print("Response not JSON:", resp.text)
-
-    except Exception as e:
-        print("Error calling API:", str(e))
-
-
-if __name__ == "__main__":
-    print("Testing Licensing & Sanction Checker MCP...")
-    run_test()
-
-
-
-db.py
-import os
-from sqlmodel import create_engine
-from sqlalchemy.pool import NullPool
-from dotenv import load_dotenv
-
-load_dotenv()
-
-
-def get_engine():
-    return create_engine(
-        f"postgresql+psycopg://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}"
-        f"@{os.getenv('PGHOST')}:{os.getenv('PGPORT', '5432')}/{os.getenv('PGDATABASE')}",
-        poolclass=NullPool,
-        echo=False
-    )
-
-
-
-
-handler.py
-
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+# from handler import compare_name_with_sanctions
 from service import database_filler
-from service import process_database
 
-async def database_filler_start(result:dict):
-   try:
-       rows=await database_filler(result)
-   except Exception as e:
-       return {
-           "status":False,
-           "stage":"extraction",
-           "error":str(e)
-       }
-   try:
-       db_result=process_database(rows)
-   except Exception as e:
-       return {
-           "status":False,
-           "stage":"database",
-           "error":str(e)
-       }
-   return {
-       "status":True,
-       "message":"Processing completed",
-       "result":db_result
-   }
+router = APIRouter()
 
 
-main.py
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi_mcp import FastApiMCP
-import uvicorn
+class CompareRequest(BaseModel):
+    """
+    This endpoint is invoked by the Data Extraction Agent.
+    It passes the FULL Azure Blob URL of the extracted JSON in 'jsonfilepath'.
 
-from router import router as file_router
+    Example payload:
+    {
+      "jsonfilepath": "https://<account>.blob.core.windows.net/<container>/<path>/file.json"
+    }
 
+    The service will:
+    - Download that JSON from Azure Blob using AZURE_STORAGE_CONNECTION_STRING,
+    - Extract the name from Owner/Insured/Contact/NAMED INSURED(S),
+    - Compare it against local 'input/sanctions.csv',
+    - Return the comparison result in a JSON-RPC envelope (consistent with your duplicate attachment checker).
+    """
+    jsonrpc: str
+    id: int
+    result: dict
 
-def apply_cors(app: FastAPI):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-
-def create_sub_app(title: str, description: str, version: str = "0.1.0") -> FastAPI:
-    sub = FastAPI(title=title, description=description, version=version)
-    apply_cors(sub)
-    return sub
-
-
-app = FastAPI()
-apply_cors(app)
-
-file_app = create_sub_app(
-    title="Licensing_and_Sanction_Checker_MCP",
-    description="Receives JSON blob URL from Data Extraction Agent and compares extracted name with local sanctions CSV."
+@router.post(
+    "/data_filler_mcp",
+    operation_id="data_filler_mcp",
+    summary="Compare JSON (Owner/Insured/Contact/NAMED INSURED(S)) from blob URL with local sanctions CSV."
 )
-file_app.include_router(file_router)
-
-# Expose ONLY this operation id via MCP HTTP (client will use transport='http')
-FastApiMCP(file_app, include_operations=["Licensing_&_Sanction_Checker_MCP"]).mount_http()
-
-# Mount the sub-app under this prefix (keep as-is per your request)
-app.mount("/api/v1/eligibility_agent", file_app)
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8751)
-
-
-mapper.py
-from models import AgentEligibility
-
-TABLE_MODEL_MAP = {
-    "dummy_agent_eligibility" : AgentEligibility
-}
-
-
-models.py
-
-
-
-
-from sqlmodel import SQLModel, Field, Column
-from sqlalchemy import String, Boolean, TIMESTAMP
-from typing import Optional
-from datetime import datetime
-
-class AgentEligibility(SQLModel, table=True):
-   __tablename__ = "dummy_agent_eligibility"
-   id: Optional[int] = Field(default=None, primary_key=True)
-   reference_number: Optional[str] = Field(
-       sa_column=Column("reference_number", String)
-   )
-   eligibility_status: Optional[str] = Field(
-       sa_column=Column("eligibility_status", String)
-   )
-   eligibility_check_date_time: Optional[datetime] = Field(
-       sa_column=Column("eligibility_check_date_time", TIMESTAMP)
-   )
-   reason_summary: Optional[str] = Field(
-       sa_column=Column("reason_summary", String)
-   )
-   line_of_business: Optional[str] = Field(
-       sa_column=Column("line_of_business", String)
-   )
-   location_risk_zone: Optional[str] = Field(
-       sa_column=Column("location_risk_zone", String)
-   )
-   business_type: Optional[str] = Field(
-       sa_column=Column("business_type", String)
-   )
-   licensing_sanction_check: Optional[str] = Field(
-       sa_column=Column("licensing_sanction_check", String)
-   )
-   source_of_check: Optional[str] = Field(
-       sa_column=Column("source_of_check", String)
-   )
-   approval_flag: Optional[bool] = Field(
-       sa_column=Column("approval_flag", Boolean)
-   )
-   approval_date_time: Optional[datetime] = Field(
-       sa_column=Column("approval_date_time", TIMESTAMP)
-   )
-
-
-service.py
-
-from sqlmodel import Session
-from db import get_engine
-from mapper import TABLE_MODEL_MAP
-from datetime import datetime
-
-async def database_filler(result:dict):
-   if "Data_Filler" not in result:
-       raise Exception("Data_Filler missing")
-   data=result["Data_Filler"]
-   if not isinstance(data,list):
-       raise Exception("Data_Filler must be list")
-   processed=[]
-   for index,item in enumerate(data):
-       if "Table_name" not in item:
-           raise Exception(f"Row {index} missing Table_name")
-       table=item["Table_name"]
-       row=item.copy()
-       row.pop("Table_name")
-       processed.append({
-           "table":table,
-           "data":row,
-           "row_number":index
-       })
-   return processed
-
-
-def process_database(rows:list):
-   engine=get_engine()
-   inserted=0
-   errors=[]
-   with Session(engine) as session:
-       for row in rows:
-           try:
-               table=row["table"]
-               data=row["data"]
-               row_number=row["row_number"]
-               if table not in TABLE_MODEL_MAP:
-                   raise Exception(
-                       f"Table mapping missing for {table}"
-                   )
-               model=TABLE_MODEL_MAP[table]
-               valid_columns=model.__fields__.keys()
-               incoming_columns=data.keys()
-               invalid_columns=set(incoming_columns)-set(valid_columns)
-               if invalid_columns:
-                   raise Exception(
-                       f"Invalid columns {invalid_columns}"
-                   )
-               # datetime conversion
-               datetime_fields=[
-                   "approval_date_time",
-                   "eligibility_check_date_time"
-               ]
-               for field in datetime_fields:
-                   if field in data:
-                       if isinstance(data[field],str):
-                           data[field]=datetime.strptime(
-                               data[field],
-                               "%Y-%m-%d %H:%M:%S"
-                           )
-               db_row=model(**data)
-               session.add(db_row)
-               inserted+=1
-           except Exception as e:
-               errors.append({
-                   "row":row_number,
-                   "error":str(e)
-               })
-       session.commit()
-   return {
-       "status":True,
-       "rows_inserted":inserted,
-       "rows_failed":len(errors),
-       "errors":errors
-   }
-
-in terminal
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-HTTP Status: 200
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": [
-        {
-            "table": "dummy_agent_eligibility",
-            "data": {
-                "reference_number": "1123123123",
-                "eligibility_status": "Eligible",
-                "eligibility_check_date_time": "2026-02-16 18:59:00",
-                "reason_summary": "Within sum insured limits and approved risk zone",
-                "line_of_business": "Commercial Property",
-                "location_risk_zone": "Medium",
-                "business_type": "New Business",
-                "licensing_sanction_check": "Cleared",
-                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-                "approval_flag": false,
-                "approval_date_time": "2026-03-01 2:26:38"
+async def database_filler_start(request: CompareRequest):
+    """
+    Receives the JSON blob URL from the Data Extraction Agent and performs the comparison.
+    Returns a JSON-RPC envelope for consistency with the duplicate attachment checker.
+    """
+    try:
+        result = await database_filler_start(request.result)
+        return JSONResponse(
+            content={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": result
             },
-            "row_number": 0
-        },
-        {
-            "table": "dummy_agent_eligibility",
-            "data": {
-                "reference_number": "123123123123",
-                "eligibility_status": "Eligible",
-                "eligibility_check_date_time": "2026-02-16 18:59:00",
-                "reason_summary": "Within sum insured limits and approved risk zone",
-                "line_of_business": "Commercial Property",
-                "location_risk_zone": "Medium",
-                "business_type": "New Business",
-                "licensing_sanction_check": "Cleared",
-                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-                "approval_flag": false,
-                "approval_date_time": "2026-03-01 2:26:38"
+            status_code=200
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {"status": False, "error": f"Unexpected server error: {str(e)}"}
             },
-            "row_number": 1
-        }
-    ]
-}
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
-but i am not able to see the data in table man
+            status_code=200
+        )
 

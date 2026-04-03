@@ -384,3 +384,19 @@ def run_test():
 if __name__ == "__main__":
     print("Testing Licensing & Sanction Checker MCP...")
     run_test()
+
+
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
+Testing Licensing & Sanction Checker MCP...
+HTTP Status: 200
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+        "status": false,
+        "error": "'<' not supported between instances of 'NoneType' and 'NoneType'"
+    }
+}
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
+
+

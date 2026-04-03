@@ -1,55 +1,155 @@
-is this structure of response correct
+service.py
+
+
+from sqlmodel import Session, select
+from models import AgentEligibility
+from db import get_engine
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 
+async def database_filler(result: dict):
+    data = result.get('Data_Filler')
+    print(data)
+    table_names = []
+    for item in data:
+        name = item.get('Table_name')   # safe: returns None if key missing
+        if name is not None:
+            table_names.append(name)
+
+    print(table_names)
+return table_names
+
+    # for item in data:
+    #     name = item.get()
+
+async def newtabledata(table_names:dict):
+    for item in data:
+        item.pop('Table_name', None)   # removes key if present; safe if missing
+
+return data
+
+        # try:
+        # data = result.get('Data_Filler')
+        # data[0]
 
 
-{
-        "jsonrpc": "2.0",
-        "id": 1,
-        "result": {
+
+def process_database(mcp_result: dict) -> dict:
+    """
+    1. Extract is_Sanctioned (NO DEFAULTS)
+    2. Decide Eligible / Not Eligible
+    3. Fetch rule from ref_eligibility_check
+    4. Fetch latest reference_number from agent_submission_intake
+    5. Insert into agent_eligibility
+    6. Return combined response
+    """
+    # ---------- DB FETCH ----------
+    engine = get_engine()
+    with Session(engine) as session:
+
+        agent_row = AgentEligibility(
+           reference_number=reference_number,
+           eligibility_status=row.eligibility_status,
+           reason_summary=row.reason_summary,
+           line_of_business=row.line_of_business,
+           location_risk_zone=row.location_risk_zone,
+           business_type=row.business_type,
+           licensing_and_sanction_check=row.licensing_and_sanction_check,
+           source_of_check=row.source_of_check,
+           approval_flag = row.approval_flag,
+           eligibility_check_date_time= formatted_time
+        )
+
+        session.add(agent_row)
+        session.commit()
+        session.refresh(agent_row)
+
+
+
+        # ---------- RESPONSE ----------
+        return {
             "status": True,
-            "results": [
-                {
-                    "Extracted Name": "Berkshire Hathaway",
-                    "is_Sanctioned": True
-                },
-   Data_Filler : [ {
-  "reference_number": "19C669E626509D51",
-  "eligibility_status": "Eligible",
-  "reason_summary": "Within sum insured limits and approved risk zone",
-  "line_of_business": "Commercial Property",
-  "location_risk_zone": "Medium",
-  "business_type": "New Business",
-  "licensing_and_sanction_check": "Cleared",
-  "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-  "approval_flag": false,
-  "approval_date_time": "2026-03-01 2:26:38",
-  "Table_name" : "dummy_agent_eligibility"
-
-
-
-               },
-
-             {
-  "reference_number": "19C669E626509D51",
-  "eligibility_status": "Eligible",
-  "reason_summary": "Within sum insured limits and approved risk zone",
-  "line_of_business": "Commercial Property",
-  "location_risk_zone": "Medium",
-  "business_type": "New Business",
-  "licensing_and_sanction_check": "Cleared",
-  "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-  "approval_flag": false,
-  "approval_date_time": "2026-03-01 2:26:38",
-  "Table_name" : "dummynew_agent_eligibility"
-
-
-
-               }
-
-]
-
-            ]
+            "reference_number" : reference_number,
+            "eligibility_status": row.eligibility_status,
+            "reason_summary": row.reason_summary,
+            "line_of_business": row.line_of_business,
+            "location_risk_zone": row.location_risk_zone,
+            "business_type": row.business_type,
+            "licensing_and_sanction_check": row.licensing_and_sanction_check,
+            "source_of_check": row.source_of_check,
+            "approval_flag": row.approval_flag,
+            "eligibility_check_date_time": formatted_time
         }
-    }
+
+
+models.py
+
+
+class AgentEligibility(SQLModel, table=True):
+    __tablename__="agent_eligibility"
+
+    id: Optional [int] = Field(default = None, primary_key = True)
+
+    reference_number: Optional[str] = Field(
+    sa_column=Column("reference_number", String)
+    )
+
+    eligibility_status: Optional[str] = Field(
+        sa_column=Column("eligibility_status", String)
+    )  
+
+    reason_summary: Optional[str] = Field(
+        sa_column=Column("reason_summary", String)
+    )
+
+    line_of_business: Optional[str] = Field(
+       sa_column=Column("line_of_business", String)
+   )
+
+    location_risk_zone: Optional[str] = Field(
+       sa_column=Column("location_risk_zone", String)
+   )
+
+    business_type: Optional[str] = Field(
+       sa_column=Column("business_type", String)
+   )   
+ 
+    licensing_and_sanction_check: Optional[str] = Field(
+       sa_column=Column("licensing_sanction_check", String)
+   )
+
+    source_of_check: Optional[str] = Field(
+       sa_column=Column("source_of_check", String)
+   )
+
+    approval_flag: Optional[bool] = Field(
+       sa_column=Column("approval_flag", Boolean)
+   )
+
+    eligibility_check_date_time : Optional[datetime] = Field(
+    default=None,
+    sa_column=Column("eligibility_check_date_time", TIMESTAMP)
+   )
+
+handler.py
+from service import database_filler, newtabledata
+
+async def database_filler_start(result: dict):
+    try:
+        data_without_tablename = database_filler(result)
+    except Exception as e:
+        return {"status": False, "error": f"unable to get tablename {e}"}
+
+    try:
+        newdata_wihtouttablename = newtabledata(data_without_tablename)
+    except Exception as e:
+        return {"status": False, "error": f"unable to get tablename {e}"}
+
+
+this is what 'Data_Filller' consists of 
+
+[{'reference_number': '19C669E626509D51', 'eligibility_status': 'Eligible', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_and_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 2:26:38', 'Table_name': 'dummy_agent_eligibility'}, {'reference_number': '19C669E626509D51', 'eligibility_status': 'Eligible', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_and_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 2:26:38', 'Table_name': 'dummy_agent_eligibility'}]
+
+so now the new process database should populate the data based on the table name and ocrresponding column name with thire values so these column names are same in table forexample reference_number, eg  'reference_number': '19C669E626509D51', 

@@ -1,303 +1,55 @@
-there is JarvisAgen_2.0 folder in it there is Jarvis Folder in that there is MCP folder in MCp folder there is common folder inside commmon folder there is phoenix_promot.py
-from phoenix.client import Client
-import os
-from functools import lru_cache
+is this structure of response correct
 
 
-PHOENIX_API_KEY = os.getenv("PHOENIX_API_KEY")
 
-PHOENIX_ENDPOINT = os.getenv("PHOENIX_ENDPOINT")
 
 
-phoenix_client = Client(
+{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "status": True,
+            "results": [
+                {
+                    "Extracted Name": "Berkshire Hathaway",
+                    "is_Sanctioned": True
+                },
+   Data_Filler : [ {
+  "reference_number": "19C669E626509D51",
+  "eligibility_status": "Eligible",
+  "reason_summary": "Within sum insured limits and approved risk zone",
+  "line_of_business": "Commercial Property",
+  "location_risk_zone": "Medium",
+  "business_type": "New Business",
+  "licensing_and_sanction_check": "Cleared",
+  "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
+  "approval_flag": false,
+  "approval_date_time": "2026-03-01 2:26:38",
+  "Table_name" : "dummy_agent_eligibility"
 
-    base_url=PHOENIX_ENDPOINT,
 
-    api_key=PHOENIX_API_KEY
 
-)
+               },
 
+             {
+  "reference_number": "19C669E626509D51",
+  "eligibility_status": "Eligible",
+  "reason_summary": "Within sum insured limits and approved risk zone",
+  "line_of_business": "Commercial Property",
+  "location_risk_zone": "Medium",
+  "business_type": "New Business",
+  "licensing_and_sanction_check": "Cleared",
+  "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
+  "approval_flag": false,
+  "approval_date_time": "2026-03-01 2:26:38",
+  "Table_name" : "dummynew_agent_eligibility"
 
-@lru_cache
-def get_prompt_template(prompt_version_id:str):
 
-    prompt_stored = phoenix_client.prompts.get(
 
-        prompt_version_id=prompt_version_id
+               }
 
-    )
+]
 
-    prompt_messages = prompt_stored._template["messages"]
-
-    system_prompt = next(
-
-        (
-
-            item["content"][0]["text"]
-
-            for item in prompt_messages
-
-            if item.get("role") == "system"
-
-        ),
-
-        None
-
-    )
-
-    if not system_prompt:
-
-        raise ValueError(
-            "Phoenix prompt missing"
-        )
-
-    return system_prompt
-
-
-
-def build_prompt(
-
-    prompt_version_id:str,
-
-    **kwargs
-
-)->str:
-
-    template = get_prompt_template(
-
-        prompt_version_id
-
-    )
-
-    return template.format(
-
-        **kwargs
-
-    )
-
-
-
-
-def get_prompt_template(prompt_version_id:str):
-   prompt_stored = phoenix_client.prompts.get(
-       prompt_version_id=prompt_version_id
-   )
-   prompt_messages = prompt_stored._template["messages"]
-   system_prompt = next(
-       (
-           item["content"][0]["text"]
-           for item in prompt_messages
-           if item.get("role") == "system"
-       ),
-       None
-   )
-   return system_prompt
-
-
-
-in same MCP folder there are multiple folders for eg layoutdetection folder inside that there is classifeir.py
-
-from dotenv import load_dotenv
-import os
-from openai import AzureOpenAI  # ✅ Correct import for Azure OpenAI
-from ..MCP.common.phoenix_prompt import build_prompt
-
-# Load environment variables
-load_dotenv()
-
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
-
-if not (AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_VERSION and AZURE_OPENAI_API_KEY and AZURE_OPENAI_CHAT_DEPLOYMENT):
-    raise RuntimeError("Azure OpenAI env vars missing. Please set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_API_KEY and AZURE_OPENAI_CHAT_DEPLOYMENT")
-
-# ✅ Create Azure OpenAI client
-client = AzureOpenAI(
-    api_key=AZURE_OPENAI_API_KEY,
-    api_version=AZURE_OPENAI_API_VERSION,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-)
-
-def classify_document(document_content):
-    text = document_content.get("text", "")
-    text_new = {text[:2000]}
-
-
-
-
-    prompt = build_prompt(
-
-        "UHJvbXB0VmVyc2lvbjoyMA==",
-
-        text_new=text_new,
-
-    )
-    # print(prompt)
-
-
-    response = client.chat.completions.create(
-        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=4,
-        temperature=0.0
-    )
-
-    try:
-        return response.choices[0].message.content.strip()
-    except Exception:
-        return getattr(response.choices[0].message, "content", "").strip()
-
-
-in the same MCP folder ther eis testmain.py
-
-from fastapi import FastAPI
-
-from fastapi.middleware.cors import CORSMiddleware
-
-from fastapi_mcp import FastApiMCP
-
-import uvicorn 
- 
-from test_email_router import router as email_router
-
-from email_reader_mcp.email_handler import get_latest_email, start_email_polling, stop_email_polling
-
-from contextlib import asynccontextmanager
-
-# from data_extractor_mcp.image_processor import process_input_folder_on_startup
-
-import asyncio
-
-from email_output_saver_mcp.email_output_saver import start_output_saver_polling, stop_output_saver_polling
-
-#custom_model_dataextractor
-from custom_model_dataextractor_mcp.image_processor import process_input_folder_on_startup
-
-# risk type checker mcp
-
-
-# Risk score Calculator MCP 
-# from risk_score_calculator_mcp.risk_calculator import RuleBasedRiskCalculator 
-
-from risk_data_capture_mcp.handler import capture_risk_data
-
-
-#accept/reject_risk_functionality_mcp
-from accept_reject_risk_functionality_mcp import agent_core
-from accept_reject_risk_functionality_mcp.agent_core import process_risk_from_blob, RiskThresholds
-
-
-
-async def _start_processing_task() -> None:
-    """
-    Create and store a background task that runs the processor.
-    This returns immediately after scheduling the task.
-    """
-    # schedule background processing
-    task = asyncio.create_task(process_input_folder_on_startup())
-    # stash on the running app (will be attached in lifespan)
-    return task
-
-async def _stop_processing_task(task: asyncio.Task) -> None:
-    """
-    Cancel and await the background task if it's still running.
-    """
-    if task and not task.done():
-        task.cancel()
-        try:
-            await task
-        except Exception:
-            # swallow exceptions on shutdown
-            pass
-
-
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # Startup
-#     await start_email_polling()
-#     yield
-#     # Shutdown
-#     await stop_email_polling()
-#     # Startup: schedule the processing task and attach to app.state
-#     try:
-#         app.state.processing_task = await _start_processing_task()
-#     except Exception:
-#         app.state.processing_task = None
-
-#     yield
-
-#     # Shutdown: cancel the task if running
-#     task = getattr(app.state, "processing_task", None)
-#     if task:
-#         await _stop_processing_task(task)
-
-#     # Startup: perform a single upload pass
-#     await start_output_saver_polling()
-#     yield
-#     # Shutdown: no-op
-#     await stop_output_saver_polling()
-
-
-app = FastAPI(docs_url="/docs")
-
-# app = FastAPI(lifespan=lifespan)
-
-def apply_cors(app: FastAPI):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-def create_sub_app(title: str, description: str, version: str = "0.1.0") -> FastAPI:
-    app = FastAPI(title=title, description=description, version=version)
-    #app = FastAPI(title=title, description=description, version=version, lifespan=lifespan)
-    apply_cors(app)
-    return app
-
-apply_cors(app)
-
-email_intent_agent_app = create_sub_app(title="email_intent_agent_mcps", description="role is to handle the initial stage of the underwriting workflow — focused solely on understanding the incoming emails")
-email_intent_agent_app.include_router(email_router)
-FastApiMCP(email_intent_agent_app, include_operations=["email_reader_mcp","attachment_checker_mcp","email_attachment_mcp","layout_detection_mcp",
-                                                       "document_extract_mcp","excel_loader_mcp", "pdf_vectorizer_mcp", "retriever_mcp",
-                                                       "email_processed_mcp","risk_type_checker_mcp","renewal_checker_mcp",
-                                                       "Licensing_and_Sanction_Checker_MCP","risk_score_calculator_mcp","Json_Reader_Read",
-                                                       "accept_reject_risk_functionality_mcp","attachment_summary_mcp","query_pdf_vectorizer_mcp",
-                                                       "query_retriever_mcp", "write_email_to_excel","guidewire_quote_mcp","email_draft_mcp",
-                                                       "Quote_Generator_MCP","guidewire_bind_and_issue_mcp","peril_data_capture_mcp",
-                                                       "peril_data_capture_res_mcp","risk_score_calculator_res_mcp"]).mount_http()
-
-#"risk_data_capture_mcp" we replaced with perils_data_capture in operation id
-
-#app.mount("/mcp",email_reader_app)
-app.mount("/api/v1/email_intent_agent",email_intent_agent_app)
-
-if __name__=="__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8658)
-(mcp_venv) Jarvis@JarvisPhase2:~/Musaddique/JarvisAgent_2.0/Jarvis/MCP$ python3 test_main.py 
-📍 Token storage path: /home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/token/token.pickle
-
-======================================================================
-🚀 GMAIL_WATCH INITIALIZED - AUTO-STARTING SCHEDULER
-======================================================================
-📍 Token found at: /home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/token/token.pickle
-⏱️  Scheduler will refresh token every 72 hours
-======================================================================
-
-✅ Token refresh scheduler STARTED (runs every 72 hours)
-   Next refresh: 2026-04-05 05:18:23
-Traceback (most recent call last):
-  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/test_main.py", line 21, in <module>
-    from test_email_router import router as email_router
-  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/test_email_router.py", line 7, in <module>
-    from email_reader_mcp.email_handler import get_latest_email, start_email_polling, stop_email_polling
-  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/email_reader_mcp/email_handler.py", line 15, in <module>
-    from .openai_helper import analyze_email_with_ai
-  File "/home/Jarvis/Musaddique/JarvisAgent_2.0/Jarvis/MCP/email_reader_mcp/openai_helper.py", line 3, in <module>
-    from ..MCP.common.phoenix_prompt import build_prompt
-ImportError: attempted relative import beyond top-level package
-
+            ]
+        }
+    }

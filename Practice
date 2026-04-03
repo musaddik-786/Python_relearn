@@ -1,37 +1,6 @@
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 main.py 
-INFO:     Started server process [40179]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8751 (Press CTRL+C to quit)
-[DEBUG] database_filler called
-[DEBUG] result type: <class 'dict'>
-[DEBUG] result value: {'status': True, 'results': [{'Extracted Name': 'Berkshire Hathaway', 'is_Sanctioned': True}], 'Data_Filler': [{'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}, {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}]}
-[DEBUG] Data_Filler value: [{'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}, {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}]
-[DEBUG] Data_Filler type: <class 'list'>
-[DEBUG] Processing item 0: {'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}
-[DEBUG] Processing item 1: {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}
-[DEBUG] processed rows: [{'table': 'dummy_agent_eligibility', 'data': {'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}, 'row_number': 0}, {'table': 'dummy_agent_eligibility', 'data': {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}, 'row_number': 1}]
-[DEBUG] process_database called with 2 rows
-[DEBUG] Row 0 - table: dummy_agent_eligibility
-[DEBUG] Row 0 - data: {'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}
-[DEBUG] model.model_fields keys: ['id', 'reference_number', 'eligibility_status', 'eligibility_check_date_time', 'reason_summary', 'line_of_business', 'location_risk_zone', 'business_type', 'licensing_sanction_check', 'source_of_check', 'approval_flag', 'approval_date_time']
-[DEBUG] filtered_data: {'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}
-[DEBUG] filtered_data after datetime conversion: {'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': datetime.datetime(2026, 2, 16, 18, 59), 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': datetime.datetime(2026, 3, 1, 2, 26, 38)}
-[DEBUG] db_row created: reference_number='1123123123' eligibility_status='Eligible' eligibility_check_date_time=datetime.datetime(2026, 2, 16, 18, 59) reason_summary='Within sum insured limits and approved risk zone' line_of_business='Commercial Property' location_risk_zone='Medium' business_type='New Business' licensing_sanction_check='Cleared' source_of_check='OFAC SDN, EU Sanctions, UN Sanctions' approval_flag=False approval_date_time=datetime.datetime(2026, 3, 1, 2, 26, 38) id=None
-[DEBUG] Row 0 added to session
-[DEBUG] Row 1 - table: dummy_agent_eligibility
-[DEBUG] Row 1 - data: {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}
-[DEBUG] model.model_fields keys: ['id', 'reference_number', 'eligibility_status', 'eligibility_check_date_time', 'reason_summary', 'line_of_business', 'location_risk_zone', 'business_type', 'licensing_sanction_check', 'source_of_check', 'approval_flag', 'approval_date_time']
-[DEBUG] filtered_data: {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}
-[DEBUG] filtered_data after datetime conversion: {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': datetime.datetime(2026, 2, 16, 18, 59), 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': datetime.datetime(2026, 3, 1, 2, 26, 38)}
-[DEBUG] db_row created: reference_number='123123123123' eligibility_status='Eligible' eligibility_check_date_time=datetime.datetime(2026, 2, 16, 18, 59) reason_summary='Within sum insured limits and approved risk zone' line_of_business='Commercial Property' location_risk_zone='Medium' business_type='New Business' licensing_sanction_check='Cleared' source_of_check='OFAC SDN, EU Sanctions, UN Sanctions' approval_flag=False approval_date_time=datetime.datetime(2026, 3, 1, 2, 26, 38) id=None
-[DEBUG] Row 1 added to session
-[DEBUG] Committing session...
-INFO:     127.0.0.1:57930 - "POST /api/v1/eligibility_agent/data_filler_mcp HTTP/1.1" 200 OK
-
-
-
-
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
+Testing Licensing & Sanction Checker MCP...
+Error calling API: HTTPConnectionPool(host='localhost', port=8751): Max retries exceeded with url: /api/v1/eligibility_agent/data_filler_mcp (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8751): Failed to establish a new connection: [Errno 111] Connection refused"))
 (venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
 Testing Licensing & Sanction Checker MCP...
 HTTP Status: 200
@@ -39,8 +8,22 @@ HTTP Status: 200
     "jsonrpc": "2.0",
     "id": 1,
     "result": {
-        "status": false,
-        "error": "'<' not supported between instances of 'NoneType' and 'NoneType'"
+        "status": true,
+        "result": {
+            "status": true,
+            "rows_inserted": 0,
+            "rows_failed": 2,
+            "errors": [
+                {
+                    "row": 0,
+                    "error": "Instance <AgentEligibility at 0x7f8c64c17ed0> has a NULL identity key.  If this is an auto-generated value, check that the database table allows generation of new primary key values, and that the mapped Column object is configured to expect these generated values.  Ensure also that this flush() is not occurring at an inappropriate time, such as within a load() event."
+                },
+                {
+                    "row": 1,
+                    "error": "Instance <AgentEligibility at 0x7f8c63de36b0> has a NULL identity key.  If this is an auto-generated value, check that the database table allows generation of new primary key values, and that the mapped Column object is configured to expect these generated values.  Ensure also that this flush() is not occurring at an inappropriate time, such as within a load() event."
+                }
+            ]
+        }
     }
 }
 (venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 

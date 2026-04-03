@@ -16,9 +16,9 @@ def get_engine():
     )
 
 
-
-
 handler.py
+
+
 
 
 from service import database_filler
@@ -98,9 +98,7 @@ TABLE_MODEL_MAP = {
     "dummy_agent_eligibility" : AgentEligibility
 }
 
-
 models.py
-
 
 from sqlmodel import SQLModel, Field, Column
 from sqlalchemy import String, Boolean, TIMESTAMP
@@ -111,38 +109,51 @@ class AgentEligibility(SQLModel, table=True):
    __tablename__ = "dummy_agent_eligibility"
    id: Optional[int] = Field(default=None, primary_key=True)
    reference_number: Optional[str] = Field(
+       default=None,
        sa_column=Column("reference_number", String)
    )
    eligibility_status: Optional[str] = Field(
+       default=None,
        sa_column=Column("eligibility_status", String)
    )
    eligibility_check_date_time: Optional[datetime] = Field(
+       default=None,
        sa_column=Column("eligibility_check_date_time", TIMESTAMP)
    )
    reason_summary: Optional[str] = Field(
+       default=None,
        sa_column=Column("reason_summary", String)
    )
    line_of_business: Optional[str] = Field(
+       default=None,
        sa_column=Column("line_of_business", String)
    )
    location_risk_zone: Optional[str] = Field(
+       default=None,
        sa_column=Column("location_risk_zone", String)
    )
    business_type: Optional[str] = Field(
+       default=None,
        sa_column=Column("business_type", String)
    )
    licensing_sanction_check: Optional[str] = Field(
+       default=None,
        sa_column=Column("licensing_sanction_check", String)
    )
    source_of_check: Optional[str] = Field(
+       default=None,
        sa_column=Column("source_of_check", String)
    )
    approval_flag: Optional[bool] = Field(
+       default=None,
        sa_column=Column("approval_flag", Boolean)
    )
    approval_date_time: Optional[datetime] = Field(
+       default=None,
        sa_column=Column("approval_date_time", TIMESTAMP)
    )
+
+
 
 router.py
 
@@ -191,7 +202,26 @@ async def data_filler_mcp(payload: dict):
 
         }
 
+
+
+
+
+
+
+
+
+
+
+
+
 service.py
+
+
+
+
+
+
+
 
 from models import AgentEligibility
 from sqlmodel import Session
@@ -235,26 +265,22 @@ def process_database(rows:list):
                        f"Table mapping missing for {table}"
                    )
                model=TABLE_MODEL_MAP[table]
-               valid_columns=model.__fields__.keys()
-               incoming_columns=data.keys()
-               invalid_columns=set(incoming_columns)-set(valid_columns)
-               if invalid_columns:
-                   raise Exception(
-                       f"Invalid columns {invalid_columns}"
-                   )
+               # only keep fields present in model
+               filtered_data={
+                   k:v for k,v in data.items()
+                   if k in model.__annotations__
+               }
                # datetime conversion
-               datetime_fields=[
+               for field in [
                    "approval_date_time",
                    "eligibility_check_date_time"
-               ]
-               for field in datetime_fields:
-                   if field in data:
-                       if isinstance(data[field],str):
-                           data[field]=datetime.strptime(
-                               data[field],
-                               "%Y-%m-%d %H:%M:%S"
+               ]:
+                   if field in filtered_data:
+                       if isinstance(filtered_data[field],str):
+                           filtered_data[field]=datetime.fromisoformat(
+                               filtered_data[field].replace(" ","T")
                            )
-               db_row=model(**data)
+               db_row=model(**filtered_data)
                session.add(db_row)
                inserted+=1
            except Exception as e:
@@ -270,7 +296,9 @@ def process_database(rows:list):
        "errors":errors
    }
 
-testscript.py
+
+
+tesetscripts.py
 
 
 import requests
@@ -318,7 +346,7 @@ def run_test():
             "licensing_sanction_check": "Cleared",
             "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
             "approval_flag": False,
-            "approval_date_time": "2026-03-01 2:26:38",
+            "approval_date_time": "2026-03-01 02:26:38",
             # "created_at" : "2026-02-01 15:15:15.123153",
             "Table_name": "dummy_agent_eligibility"
             },
@@ -333,7 +361,7 @@ def run_test():
             "licensing_sanction_check": "Cleared",
             "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
             "approval_flag": False,
-            "approval_date_time": "2026-03-01 2:26:38",
+            "approval_date_time": "2026-03-01 02:26:38",
             # "created_at" : "2026-02-01 15:15:15.123153",            
             "Table_name": "dummy_agent_eligibility"
             }
@@ -356,16 +384,3 @@ def run_test():
 if __name__ == "__main__":
     print("Testing Licensing & Sanction Checker MCP...")
     run_test()
-
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-HTTP Status: 200
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": false,
-        "error": "'<' not supported between instances of 'NoneType' and 'NoneType'"
-    }
-}
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 

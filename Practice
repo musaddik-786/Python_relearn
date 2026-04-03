@@ -1,29 +1,40 @@
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-Error calling API: HTTPConnectionPool(host='localhost', port=8751): Max retries exceeded with url: /api/v1/eligibility_agent/data_filler_mcp (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8751): Failed to establish a new connection: [Errno 111] Connection refused"))
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-HTTP Status: 200
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": true,
-        "result": {
-            "status": true,
-            "rows_inserted": 0,
-            "rows_failed": 2,
-            "errors": [
-                {
-                    "row": 0,
-                    "error": "Instance <AgentEligibility at 0x7f8c64c17ed0> has a NULL identity key.  If this is an auto-generated value, check that the database table allows generation of new primary key values, and that the mapped Column object is configured to expect these generated values.  Ensure also that this flush() is not occurring at an inappropriate time, such as within a load() event."
-                },
-                {
-                    "row": 1,
-                    "error": "Instance <AgentEligibility at 0x7f8c63de36b0> has a NULL identity key.  If this is an auto-generated value, check that the database table allows generation of new primary key values, and that the mapped Column object is configured to expect these generated values.  Ensure also that this flush() is not occurring at an inappropriate time, such as within a load() event."
-                }
-            ]
-        }
-    }
-}
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi_mcp import FastApiMCP
+import uvicorn
+import models
+from router import router as file_router
+
+def apply_cors(app: FastAPI):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+def create_sub_app(title: str, description: str, version: str = "0.1.0") -> FastAPI:
+    sub = FastAPI(title=title, description=description, version=version)
+    apply_cors(sub)
+    return sub
+
+
+app = FastAPI()
+apply_cors(app)
+
+file_app = create_sub_app(
+    title="Licensing_and_Sanction_Checker_MCP",
+    description="Receives JSON blob URL from Data Extraction Agent and compares extracted name with local sanctions CSV."
+)
+file_app.include_router(file_router)
+
+# Expose ONLY this operation id via MCP HTTP (client will use transport='http')
+FastApiMCP(file_app, include_operations=["Licensing_&_Sanction_Checker_MCP"]).mount_http()
+
+# Mount the sub-app under this prefix (keep as-is per your request)
+app.mount("/api/v1/eligibility_agent", file_app)
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8751)

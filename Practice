@@ -1,515 +1,224 @@
-db.py
-import os
-from sqlmodel import create_engine
-from sqlalchemy.pool import NullPool
-from dotenv import load_dotenv
 
-load_dotenv()
 
 
-def get_engine():
-    return create_engine(
-        f"postgresql+psycopg://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}"
-        f"@{os.getenv('PGHOST')}:{os.getenv('PGPORT', '5432')}/{os.getenv('PGDATABASE')}",
-        poolclass=NullPool,
-        # pool_pre_ping= True,
-        echo=False
-    )
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-
-
-
-
-handler.py
-
-from service import database_filler
-from service import process_database
-async def database_filler_start(result:dict):
-   try:
-       rows = await database_filler(result)
-   except Exception as e:
-       return {
-           "status":False,
-           "error":str(e)
-       }
-   try:
-       db_result = process_database(rows)
-   except Exception as e:
-       return {
-           "status":False,
-           "error":str(e)
-       }
-   return {
-       "status":True,
-       "result":db_result
-   }
-
-
-main.py
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi_mcp import FastApiMCP
-import uvicorn
-import models
-from router import router as file_router
-
-def apply_cors(app: FastAPI):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-
-def create_sub_app(title: str, description: str, version: str = "0.1.0") -> FastAPI:
-    sub = FastAPI(title=title, description=description, version=version)
-    apply_cors(sub)
-    return sub
-
-
-app = FastAPI()
-apply_cors(app)
-
-file_app = create_sub_app(
-    title="Licensing_and_Sanction_Checker_MCP",
-    description="Receives JSON blob URL from Data Extraction Agent and compares extracted name with local sanctions CSV."
-)
-file_app.include_router(file_router)
-
-# Expose ONLY this operation id via MCP HTTP (client will use transport='http')
-FastApiMCP(file_app, include_operations=["Licensing_&_Sanction_Checker_MCP"]).mount_http()
-
-# Mount the sub-app under this prefix (keep as-is per your request)
-app.mount("/api/v1/eligibility_agent", file_app)
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8751)
-
-
-mapper.py
-from models import AgentEligibility
-
-TABLE_MODEL_MAP = {
-    "dummy_agent_eligibility" : AgentEligibility
-}
-
-
-models.py
-
-from sqlmodel import SQLModel, Field, Column
-
-from sqlalchemy import String, Boolean, TIMESTAMP
-
-from typing import Optional
-
-from datetime import datetime
-
-
-class AgentEligibility(SQLModel, table=True):
-
-    __tablename__ = "dummy_agent_eligibility"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-
-    reference_number: Optional[str] = Field(
-
-        sa_column=Column("reference_number", String, nullable=True)
-
-    )
-
-    eligibility_status: Optional[str] = Field(
-
-        sa_column=Column("eligibility_status", String, nullable=True)
-
-    )
-
-    eligibility_check_date_time: Optional[datetime] = Field(
-
-        sa_column=Column("eligibility_check_date_time", TIMESTAMP, nullable=True)
-
-    )
-
-    reason_summary: Optional[str] = Field(
-
-        sa_column=Column("reason_summary", String, nullable=True)
-
-    )
-
-    line_of_business: Optional[str] = Field(
-
-        sa_column=Column("line_of_business", String, nullable=True)
-
-    )
-
-    location_risk_zone: Optional[str] = Field(
-
-        sa_column=Column("location_risk_zone", String, nullable=True)
-
-    )
-
-    business_type: Optional[str] = Field(
-
-        sa_column=Column("business_type", String, nullable=True)
-
-    )
-
-    licensing_sanction_check: Optional[str] = Field(
-
-        sa_column=Column("licensing_sanction_check", String, nullable=True)
-
-    )
-
-    source_of_check: Optional[str] = Field(
-
-        sa_column=Column("source_of_check", String, nullable=True)
-
-    )
-
-    approval_flag: Optional[bool] = Field(
-
-        sa_column=Column("approval_flag", Boolean, nullable=True)
-
-    )
-
-    approval_date_time: Optional[datetime] = Field(
-
-        sa_column=Column("approval_date_time", TIMESTAMP, nullable=True)
-
-    )
-
-
-router.py
-
-
-from fastapi import APIRouter
-
-from handler import database_filler_start
-
-router = APIRouter()
-
-
-@router.post(
-
-    "/data_filler_mcp",
-
-    operation_id="Licensing_&_Sanction_Checker_MCP"
-
+# Initialize Azure OpenAI embeddings
+embeddings = AzureOpenAIEmbeddings(
+    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
+    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    chunk_size=1024
 )
 
-async def data_filler_mcp(payload: dict):
 
+
+def query_documents(vectordb: Any, user_query: str) -> str:
+
+    print(f"🔍 Processing query: {user_query}")
+
+    llm = AzureChatOpenAI(
+
+        openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+
+        openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+
+        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
+
+        temperature=0,
+
+        top_p=1
+
+    )
+
+    print("📚 Performing MultiQuery retrieval...")
+
+    base_retriever = vectordb.as_retriever(
+
+        search_type="mmr",
+
+        search_kwargs={
+
+            "k":5,
+
+            "fetch_k":10
+
+        }
+
+    )
+
+    retriever = MultiQueryRetriever.from_llm(
+
+        base_retriever,
+
+        llm
+
+    )
+
+    relevant_chunks = retriever.invoke(user_query)
+
+    print("Retrieved chunks:",len(relevant_chunks))
+
+    if not relevant_chunks:
+
+        return "No relevant information found."
+
+    # Debug chunks
+
+    for i,chunk in enumerate(relevant_chunks):
+
+        print(f"\nChunk {i}:")
+
+        print(chunk.page_content[:150])
+
+    context = "\n".join(
+
+        [chunk.page_content for chunk in relevant_chunks]
+
+    )
+
+    qa_prompt = PromptTemplate(
+
+        input_variables=["context","question"],
+
+        template="""You are an expert assistant for answering questions about documents.
+
+Based on the provided document context, answer the user's question accurately and concisely.
+
+QUESTION: {question}
+
+CONTEXT:
+{context}
+
+ANSWER:
+Provide a clear, direct answer based only on the context provided. 
+If the answer is not found in the context, explicitly state "Not found in documents."
+Do not guess or use external knowledge.
+Keep your answer concise and relevant to the question."""
+
+    )
+
+    chain = LLMChain(
+
+        llm=llm,
+
+        prompt=qa_prompt
+
+    )
+
+    answer = chain.run({
+
+        "context":context,
+
+        "question":user_query
+
+    }).strip()
+
+    return answer
+ 
+
+
+
+ 
+async def process_query_retrieval(vector_db_path: str, query: str) -> Dict[str, Any]:
+    """
+    Main processing function for query-based document retrieval.
+    
+    Takes a user query, performs semantic search on vectorized content,
+    and returns a direct answer without JSON extraction.
+    
+    Args:
+        vector_db_path: Can be either:
+            1. Local absolute path from pdf_vectorizer output: /home/jarvis/rohan/Document_Query_MCP/data/vec_db/pdf_name
+            2. Blob URL (fallback): https://... - will extract pdf name and construct local path
+        query: User's question as a string
+    
+    Returns:
+        Dict with answer and metadata
+    """
     try:
-
-        result = payload.get("result")
-
-        response = await database_filler_start(result)
-
+        # Handle both blob URLs and local paths
+        # if vector_db_path.startswith(("http://", "https://")):
+            # This is a blob URL - extract the PDF name and construct local path
+        #     logger.warning(f"Received blob URL instead of local path. Extracting PDF name...")
+        #     path = unquote(urlparse(vector_db_path).path)
+        #     file_name_with_ext = os.path.basename(path)
+        #     pdf_name = os.path.splitext(file_name_with_ext)[0]
+            
+        #     # Construct the local vector_db_path
+        #     vdb_base_path = os.getenv("QUERY_VDB_PATH", "./data/vec_db")
+        #     vector_db_path = os.path.abspath(os.path.join(vdb_base_path, pdf_name))
+        #     logger.info(f"Reconstructed local vector_db_path: {vector_db_path}")
+        # else:
+            # Ensure it's an absolute path
+        vector_db_path = os.path.abspath(vector_db_path)
+        
+        # Get safe collection name from vector_db_path
+        # ChromaDB only allows: [a-zA-Z0-9._-]
+        # safe_name = os.path.basename(vector_db_path).lower()
+        # safe_name = safe_name.replace(" ", "_").replace("-", "_").replace(".", "_")
+        # # Remove parentheses and other special characters
+        # safe_name = "".join(c if c.isalnum() or c in "._-" else "" for c in safe_name)
+        # # Ensure it starts and ends with alphanumeric
+        # safe_name = safe_name.strip("._-")
+        # collection_name = f"{safe_name}_collection"
+        # persist_directory = os.path.join(vector_db_path, "chroma_db", safe_name)
+        
+        # Verify the vector DB exists
+        if not os.path.exists(vector_db_path):
+            raise FileNotFoundError(f"Vector database not found at: {vector_db_path}")
+        
+        # Load the vector store
+        print(f"📚 Loading vector store from {vector_db_path}")
+        vectordb = Chroma(
+            embedding_function=embeddings,
+            persist_directory=vector_db_path,
+            collection_name="my_collection"
+        )
+        
+        # Get answer using semantic search and LLM
+        answer = query_documents(vectordb, query)
+        # Get PDF name for metadata
+        pdf_name = os.path.basename(vector_db_path)
+        
         return {
-
-            "jsonrpc":"2.0",
-
-            "id":payload.get("id"),
-
-            "result":response
-
+            "answer": answer,
+            "metadata": {
+                "is_error": False,
+                "error_message": None,
+                "query": query,
+                "source_pdf": pdf_name,
+                "vector_db_path": vector_db_path
+            }
         }
-
+        
     except Exception as e:
-
+        logger.exception("Error in query retrieval process")
         return {
-
-            "jsonrpc":"2.0",
-
-            "id":payload.get("id"),
-
-            "error":str(e)
-
-        }
-
-
-
-
-service.py
-
-from models import AgentEligibility
-
-from sqlmodel import Session
-
-from db import get_engine
-
-from mapper import TABLE_MODEL_MAP
-
-from datetime import datetime
-
-async def database_filler(result:dict):
-
-   print(f"[DEBUG] database_filler called")
-
-   print(f"[DEBUG] result type: {type(result)}")
-
-   print(f"[DEBUG] result value: {result}")
-
-   if "Data_Filler" not in result:
-
-       raise Exception("Data_Filler missing")
-
-   data=result["Data_Filler"]
-
-   print(f"[DEBUG] Data_Filler value: {data}")
-
-   print(f"[DEBUG] Data_Filler type: {type(data)}")
-
-   if not isinstance(data,list):
-
-       raise Exception("Data_Filler must be list")
-
-   processed=[]
-
-   for index,item in enumerate(data):
-
-       print(f"[DEBUG] Processing item {index}: {item}")
-
-       if "Table_name" not in item:
-
-           raise Exception(f"Row {index} missing Table_name")
-
-       table=item["Table_name"]
-
-       row=item.copy()
-
-       row.pop("Table_name")
-
-       processed.append({
-
-           "table":table,
-
-           "data":row,
-
-           "row_number":index
-
-       })
-
-   print(f"[DEBUG] processed rows: {processed}")
-
-   return processed
-
-def process_database(rows:list):
-
-   engine=get_engine()
-
-   inserted=0
-
-   errors=[]
-
-   with Session(engine) as session:
-
-       for row in rows:
-
-           try:
-
-               table=row["table"]
-
-               data=row["data"]
-
-               row_number=row["row_number"]
-
-               if table not in TABLE_MODEL_MAP:
-
-                   raise Exception(f"Table mapping missing for {table}")
-
-               model=TABLE_MODEL_MAP[table]
-
-               filtered_data={
-
-                   k:v for k,v in data.items()
-
-                   if k in model.model_fields
-
-               }
-
-               for field in [
-
-                   "approval_date_time",
-
-                   "eligibility_check_date_time"
-
-               ]:
-
-                   if field in filtered_data:
-
-                       if isinstance(filtered_data[field],str):
-
-                           filtered_data[field]=datetime.fromisoformat(
-
-                               filtered_data[field].replace(" ","T")
-
-                           )
-
-               db_row=model(**filtered_data)
-
-               session.add(db_row)
-
-               session.flush()        # ← flush immediately to get DB-generated id
-
-               session.refresh(db_row) # ← refresh so id is populated
-
-               inserted+=1
-
-           except Exception as e:
-
-               session.rollback()
-
-               errors.append({
-
-                   "row":row_number,
-
-                   "error":str(e)
-
-               })
-
-       session.commit()
-
-   return {
-
-       "status":True,
-
-       "rows_inserted":inserted,
-
-       "rows_failed":len(errors),
-
-       "errors":errors
-
-   }
-
-testscript.py
-
-
-import requests
-import json
-
-BASE_URL = "http://localhost:8751/api/v1/eligibility_agent/data_filler_mcp"
-
-
-def run_test():
-    # payload = {
-    #     "jsonrpc": "2.0",
-    #     "id": 1,
-    #     "result": {
-    #         "status": True,
-    #         "results": [
-    #             {
-    #                 "Extracted Name": "Berkshire Hathaway",
-    #                 "is_Sanctioned": True
-    #             }
-    #         ]
-    #     }
-    # }
-
-
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "result": {
-        "status": True,
-        "results": [
-            {
-            "Extracted Name": "Berkshire Hathaway",
-            "is_Sanctioned": True
+            "answer": None,
+            "metadata": {
+                "is_error": True,
+                "error_message": str(e),
+                "query": query,
+                "source_pdf": None,
+                "vector_db_path": vector_db_path if 'vector_db_path' in locals() else None
             }
-        ],
-        "Data_Filler": [
-            {
-            "reference_number": "1123123123",
-            "eligibility_status": "Eligible",
-            "eligibility_check_date_time" : "2026-02-16 18:59:00",
-            "reason_summary": "Within sum insured limits and approved risk zone",
-            "line_of_business": "Commercial Property",
-            "location_risk_zone": "Medium",
-            "business_type": "New Business",
-            "licensing_sanction_check": "Cleared",
-            "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-            "approval_flag": False,
-            "approval_date_time": "2026-03-01 02:26:38",
-            # "created_at" : "2026-02-01 15:15:15.123153",
-            "Table_name": "dummy_agent_eligibility"
-            },
-            {
-            "reference_number": "123123123123",
-            "eligibility_status": "Eligible",
-            "eligibility_check_date_time" : "2026-02-16 18:59:00",            
-            "reason_summary": "Within sum insured limits and approved risk zone",
-            "line_of_business": "Commercial Property",
-            "location_risk_zone": "Medium",
-            "business_type": "New Business",
-            "licensing_sanction_check": "Cleared",
-            "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-            "approval_flag": False,
-            "approval_date_time": "2026-03-01 02:26:38",
-            # "created_at" : "2026-02-01 15:15:15.123153",            
-            "Table_name": "dummy_agent_eligibility"
-            }
-        ]
         }
-        }
-    try:
-        resp = requests.post(BASE_URL, json=payload, timeout=120)
-        print("HTTP Status:", resp.status_code)
-
-        try:
-            print(json.dumps(resp.json(), indent=4))
-        except Exception:
-            print("Response not JSON:", resp.text)
-
-    except Exception as e:
-        print("Error calling API:", str(e))
 
 
+
+
+
+# if __name__ == "__main__":
+#     await process_query_retrieval("C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\input","What is Contact Number")
+    
 if __name__ == "__main__":
-    print("Testing Licensing & Sanction Checker MCP...")
-    run_test()
-
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-HTTP Status: 200
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": true,
-        "result": {
-            "status": true,
-            "rows_inserted": 0,
-            "rows_failed": 2,
-            "errors": [
-                {
-                    "row": 0,
-                    "error": "Instance <AgentEligibility at 0x7fdf4cf4ea30> has a NULL identity key.  If this is an auto-generated value, check that the database table allows generation of new primary key values, and that the mapped Column object is configured to expect these generated values.  Ensure also that this flush() is not occurring at an inappropriate time, such as within a load() event."
-                },
-                {
-                    "row": 1,
-                    "error": "Instance <AgentEligibility at 0x7fdf4c1fcd20> has a NULL identity key.  If this is an auto-generated value, check that the database table allows generation of new primary key values, and that the mapped Column object is configured to expect these generated values.  Ensure also that this flush() is not occurring at an inappropriate time, such as within a load() event."
-                }
-            ]
-        }
-    }
-}
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
-
-
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 main.py 
-INFO:     Started server process [40960]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8751 (Press CTRL+C to quit)
-[DEBUG] database_filler called
-[DEBUG] result type: <class 'dict'>
-[DEBUG] result value: {'status': True, 'results': [{'Extracted Name': 'Berkshire Hathaway', 'is_Sanctioned': True}], 'Data_Filler': [{'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}, {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}]}
-[DEBUG] Data_Filler value: [{'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}, {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}]
-[DEBUG] Data_Filler type: <class 'list'>
-[DEBUG] Processing item 0: {'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}
-[DEBUG] Processing item 1: {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38', 'Table_name': 'dummy_agent_eligibility'}
-[DEBUG] processed rows: [{'table': 'dummy_agent_eligibility', 'data': {'reference_number': '1123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}, 'row_number': 0}, {'table': 'dummy_agent_eligibility', 'data': {'reference_number': '123123123123', 'eligibility_status': 'Eligible', 'eligibility_check_date_time': '2026-02-16 18:59:00', 'reason_summary': 'Within sum insured limits and approved risk zone', 'line_of_business': 'Commercial Property', 'location_risk_zone': 'Medium', 'business_type': 'New Business', 'licensing_sanction_check': 'Cleared', 'source_of_check': 'OFAC SDN, EU Sanctions, UN Sanctions', 'approval_flag': False, 'approval_date_time': '2026-03-01 02:26:38'}, 'row_number': 1}]
-INFO:     127.0.0.1:48158 - "POST /api/v1/eligibility_agent/data_filler_mcp HTTP/1.1" 200 OK
-
+    result = asyncio.run(process_query_retrieval(
+        r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\input",
+        "When was this building made?"
+    ))
+    print(result)    

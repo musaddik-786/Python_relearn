@@ -1,163 +1,35 @@
-from langchain_chroma import Chroma
-from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
-from langchain_core.prompts import PromptTemplate
-from langchain_classic.chains.llm import LLMChain
-from dotenv import load_dotenv
-import os
-import asyncio
-load_dotenv()
-# Embeddings
-embeddings = AzureOpenAIEmbeddings(
-   azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
-   openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-   openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-   azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-   chunk_size=1024
-)
+s\chromadb\api\models\CollectionCommon.py", line 329, in _validate_and_prepare_que(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\9.2metadatafilteringquery.py
 
-def query_documents(vectordb, user_query):
-   print("\nProcessing query:",user_query)
-   llm = AzureChatOpenAI(
-       openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-       azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-       openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-       deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-       temperature=0
-   )
-   print("\nPerforming metadata filtered search...")
-   # METADATA FILTER HERE
-   relevant_chunks = vectordb.similarity_search(
-       user_query,
-       k=5,
-       filter={"doc_type":"insurance"}
-   )
-   print("\nChunks retrieved:",len(relevant_chunks))
-   if not relevant_chunks:
-       return "No relevant information found"
-   # Print metadata to confirm filtering
-   print("\nMetadata of retrieved chunks:")
-   for chunk in relevant_chunks:
-       print(chunk.metadata)
-   # Build context
-   context = "\n".join(
-       chunk.page_content for chunk in relevant_chunks
-   )
-   # Prompt
-   qa_prompt = PromptTemplate(
-       input_variables=["context","question"],
-       template="""
-Answer the question using only the context.
-QUESTION:
-{question}
-CONTEXT:
-{context}
-ANSWER:
-"""
-   )
-   chain = LLMChain(
-       llm=llm,
-       prompt=qa_prompt
-   )
-   answer = chain.run({
-       "context":context,
-       "question":user_query
-   })
-   return answer
+Query: Give me the Year Built
 
-async def process_query():
-   vector_db_path = r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\input8.1"
-   vectordb = Chroma(
-       embedding_function=embeddings,
-       persist_directory=vector_db_path,
-       collection_name="mynew_collection"
-   )
-   answer = query_documents(
-       vectordb,
-       "Give me the Year Built"
-   )
-   print("\nFinal Answer:\n")
-   print(answer)
-
-if __name__ == "__main__":
-   asyncio.run(process_query())
-
-
-from langchain_chroma import Chroma
-from langchain_openai import AzureOpenAIEmbeddings
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from dotenv import load_dotenv
-import os
-load_dotenv()
-# Embedding model
-embeddings = AzureOpenAIEmbeddings(
-   azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
-   openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-   openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-   azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-   chunk_size=1024
-)
-# Text splitter
-text_splitter = RecursiveCharacterTextSplitter(
-   chunk_size=800,
-   chunk_overlap=100
-)
-# Load document
-loader = TextLoader(
-   r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\mytext.txt",
-   encoding="utf-8"
-)
-documents = loader.load()
-# Split into chunks
-chunks = text_splitter.split_documents(documents)
-# ADD METADATA HERE
-for chunk in chunks:
-   chunk.metadata["doc_type"] = "insurance"
-   chunk.metadata["category"] = "underwriting"
-   chunk.metadata["source_file"] = "mytext.txt"
-
-# Directory to store vectors
-my_dir = os.path.join(
-   os.path.dirname(os.path.abspath(__file__)),
-   "input8.1"
-)
-# Create vector DB
-vectorstore = Chroma.from_documents(
-   documents=chunks,
-   embedding=embeddings,
-   collection_name="mymynew_collection",
-   persist_directory=my_dir
-)
-print("\nTotal chunks:",len(chunks))
-print("\nFirst chunk text:")
-print(chunks[0].page_content[:150])
-print("\nFirst chunk metadata:")
-print(chunks[0].metadata)
-
-
-First chunk metadata: 
-{'source': 'C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\mytext.txt', 'doc_type': 'insurance', 'category': 'underwriting', 'source_file': 'mytext.txt'}
-
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES>   
-
-
-
-8.1metadatafilteringloader.py
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\8.2metadatafilteringretireival.py
-
-Processing query: Give me the Year Built
-
-Performing metadata fiProcessing query: Give me the Year Built    
-
-Performing metadata filtered search...      
-
-Chunks retrieved: 0   
-
-Final Answer:
-
-No relevant information found    
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES>   
-
-
-
-
+Filtering section: property
+Traceback (most recent call last):
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\9.2metadatafilteringquery.py", line 30, in <module>
+    relevant_chunks = vectordb.similarity_search(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 748, in similarity_search
+    docs_and_scores = self.similarity_search_with_score(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 849, in similarity_search_with_score
+    results = self.__query_collection(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_core\utils\utils.py", line 51, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 477, in __query_collection
+    return self._collection.query(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\chromadb\api\models\Collection.py", line 251, in query
+    query_request = self._validate_and_prepare_query_request(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\chromadb\api\models\CollectionCommon.py", line 103, in wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\chromadb\api\models\CollectionCommon.py", line 329, in _validate_and_prepare_query_request
+    validate_filter_set(filter_set=filters)
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\chromadb\api\types.py", line 555, in validate_filter_set
+    validate_where(filter_set["where"])
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\chromadb\api\types.py", line 1182, in validate_where
+    raise ValueError(f"Expected where to have exactly one operator, got {where}") 
+ValueError: Expected where to have exactly one operator, got {'doc_type': 'insurance', 'section': 'property'} in query.
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> 

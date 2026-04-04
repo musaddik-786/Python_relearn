@@ -1,6 +1,31 @@
+from langchain_chroma import Chroma
+from langchain_openai import AzureOpenAIEmbeddings
+from dotenv import load_dotenv
+import os
 
+import logging
+from typing import Dict, Any, List
+# from langchain.chains import LLMChain
+from langchain_classic.chains.llm import LLMChain
+# from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
+# from langchain_community.chat_models import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+# from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
+# from langchain_community.embeddings import AzureOpenAIEmbeddings
+# from azure.storage.blob import BlobServiceClient, ContainerClient
+from azure.core.exceptions import ResourceExistsError
+import re
+# from datetime import datetime
+# from urllib.parse import urlparse, unquote
+# from Jarvis.MCP.common.phoenix_prompt import build_prompt
 
+import asyncio
+# Load environment variables
+load_dotenv()
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -14,77 +39,48 @@ embeddings = AzureOpenAIEmbeddings(
 )
 
 
-
 def query_documents(vectordb: Any, user_query: str) -> str:
-
+    """
+    Answer user questions by querying vectorized document content.
+    
+    Performs semantic search on the vectorized content to find relevant chunks,
+    then uses LLM to generate a direct answer based on the context.
+    
+    Args:
+        vectordb: Loaded ChromaDB instance with embeddings
+        user_query: User's question as a string
+    
+    Returns:
+        Direct answer string (not structured JSON)
+    """
     print(f"🔍 Processing query: {user_query}")
-
+    
     llm = AzureChatOpenAI(
-
         openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-
         openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-
         deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
-
         temperature=0,
-
         top_p=1
-
     )
-
-    print("📚 Performing MultiQuery retrieval...")
-
-    base_retriever = vectordb.as_retriever(
-
-        search_type="mmr",
-
-        search_kwargs={
-
-            "k":5,
-
-            "fetch_k":10
-
-        }
-
+    
+    # Perform semantic search with large k value for better context
+    print(f"📚 Performing semantic search...")
+    relevant_chunks = vectordb.similarity_search(
+        user_query,
+        k=5  # Large k for comprehensive context
     )
-
-    retriever = MultiQueryRetriever.from_llm(
-
-        base_retriever,
-
-        llm
-
-    )
-
-    relevant_chunks = retriever.invoke(user_query)
-
-    print("Retrieved chunks:",len(relevant_chunks))
-
+    
     if not relevant_chunks:
-
-        return "No relevant information found."
-
-    # Debug chunks
-
-    for i,chunk in enumerate(relevant_chunks):
-
-        print(f"\nChunk {i}:")
-
-        print(chunk.page_content[:150])
-
-    context = "\n".join(
-
-        [chunk.page_content for chunk in relevant_chunks]
-
-    )
-
+        print("⚠️ No relevant chunks found in the document")
+        return "I could not find any relevant information in the document to answer your question."
+    
+    # Combine relevant chunks into context
+    context = "\n".join([chunk.page_content for chunk in relevant_chunks])
+    print("This is my context",context)
+    # Create prompt for question answering
     qa_prompt = PromptTemplate(
-
-        input_variables=["context","question"],
-
+        input_variables=["context", "question"],
         template="""You are an expert assistant for answering questions about documents.
 
 Based on the provided document context, answer the user's question accurately and concisely.
@@ -99,31 +95,25 @@ Provide a clear, direct answer based only on the context provided.
 If the answer is not found in the context, explicitly state "Not found in documents."
 Do not guess or use external knowledge.
 Keep your answer concise and relevant to the question."""
-
     )
-
-    chain = LLMChain(
-
-        llm=llm,
-
-        prompt=qa_prompt
-
-    )
-
-    answer = chain.run({
-
-        "context":context,
-
-        "question":user_query
-
-    }).strip()
-
-    return answer
- 
+    
+    chain = LLMChain(llm=llm, prompt=qa_prompt)
+    
+    try:
+        print(f"Generating answer...")
+        answer = chain.run({
+            "context": context,
+            "question": user_query
+        }).strip()
+        
+        print(f"Answer generated successfully")
+        return answer
+        
+    except Exception as e:
+        logger.error(f"Error generating answer: {e}")
+        return f"Error processing your query: {str(e)}"
 
 
-
- 
 async def process_query_retrieval(vector_db_path: str, query: str) -> Dict[str, Any]:
     """
     Main processing function for query-based document retrieval.
@@ -219,6 +209,6 @@ async def process_query_retrieval(vector_db_path: str, query: str) -> Dict[str, 
 if __name__ == "__main__":
     result = asyncio.run(process_query_retrieval(
         r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\input",
-        "When was this building made?"
+        " When was this building made?"
     ))
     print(result)    

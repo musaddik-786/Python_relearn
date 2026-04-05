@@ -1,10 +1,9 @@
 from langchain_chroma import Chroma
-from langchain_openai import AzureOpenAIEmbeddings
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
+from langchain_core.prompts import PromptTemplate
+from langchain_classic.chains.llm import LLMChain
 from dotenv import load_dotenv
 import os
-import time
 
 load_dotenv()
 
@@ -18,88 +17,130 @@ embeddings = AzureOpenAIEmbeddings(
 
     openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
 
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-
-    chunk_size=50,          # IMPORTANT → smaller batch
-
-    max_retries=10          # retry if rate limited
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
 )
 
-# ================= TEXT SPLITTER =================
+# ================= VECTOR DB =================
 
-text_splitter = RecursiveCharacterTextSplitter(
+vector_db_path=r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\input"
 
-    chunk_size=800,
-
-    chunk_overlap=100
-)
-
-# ================= LOAD LARGE FILE =================
-
-loader = TextLoader(
-
-    r"C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\big_insurance_dataset.txt",
-
-    encoding="utf-8"
-)
-
-documents = loader.load()
-
-print("\nDocuments loaded:",len(documents))
-
-# ================= SPLIT =================
-
-chunks = text_splitter.split_documents(documents)
-
-print("\nTotal chunks:",len(chunks))
-
-# ================= VECTOR DIRECTORY =================
-
-persist_dir = os.path.join(
-
-    os.path.dirname(os.path.abspath(__file__)),
-
-    "big_input"
-)
-
-# ================= CREATE EMPTY DB =================
-
-vectordb = Chroma(
+vectordb=Chroma(
 
     embedding_function=embeddings,
 
-    persist_directory=persist_dir,
+    persist_directory=vector_db_path,
 
-    collection_name="big_collection"
+    collection_name="my_collection"
 )
 
-# ================= BATCH INGESTION =================
+# ================= LLM =================
 
-batch_size = 50
+llm=AzureChatOpenAI(
 
-print("\nStarting batched ingestion...")
+    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
 
-for i in range(0,len(chunks),batch_size):
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
 
-    batch = chunks[i:i+batch_size]
+    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
 
-    try:
+    deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
 
-        vectordb.add_documents(batch)
+    temperature=0
+)
 
-        print(f"Inserted batch {i} → {i+batch_size}")
+# ================= USER QUERY =================
 
-        # IMPORTANT → prevent rate limit
-        time.sleep(1)
+user_query="What is the contact number"
 
-    except Exception as e:
+print("\nUser Query:",user_query)
 
-        print("Retrying batch due to:",e)
+# ================= VECTOR SEARCH =================
 
-        time.sleep(10)
+print("\nRunning vector search...")
 
-        vectordb.add_documents(batch)
+vector_results=vectordb.similarity_search(
 
-print("\nIngestion complete")
+    user_query,
 
-print("\nVector DB stored at:",persist_dir)
+    k=3
+)
+
+# ================= KEYWORD SEARCH =================
+
+print("\nRunning keyword search...")
+
+all_docs=vectordb.get()
+
+keyword_results=[]
+
+for text,metadata in zip(
+
+        all_docs["documents"],
+        all_docs["metadatas"]
+):
+
+    if user_query.lower() in text.lower():
+
+        keyword_results.append(text)
+
+# ================= MERGE RESULTS =================
+
+combined_texts=[]
+
+# Add vector results
+for doc in vector_results:
+
+    combined_texts.append(doc.page_content)
+
+# Add keyword results
+for text in keyword_results:
+
+    if text not in combined_texts:
+
+        combined_texts.append(text)
+
+print("\nTotal combined chunks:",len(combined_texts))
+
+# ================= CONTEXT =================
+
+context="\n".join(combined_texts)
+
+# ================= QA PROMPT =================
+
+qa_prompt=PromptTemplate(
+
+    input_variables=["context","question"],
+
+    template="""
+Answer using ONLY this context.
+
+QUESTION:
+{question}
+
+CONTEXT:
+{context}
+
+ANSWER:
+"""
+)
+
+qa_chain=LLMChain(
+
+    llm=llm,
+
+    prompt=qa_prompt
+)
+
+answer=qa_chain.invoke({
+
+    "context":context,
+
+    "question":user_query
+
+})["text"]
+
+# ================= ANSWER =================
+
+print("\nFINAL ANSWER:\n")
+
+print(answer)

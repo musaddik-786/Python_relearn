@@ -1,22 +1,148 @@
-C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\11.2hybridretreival.py:127: LangChainDeprecationWarning: The class `LLMChain` was deprecated in LangChain 0.1.17 and will be removed in 1.0. Use `RunnableSequence, e.g., `prompt | llm`` instead.
-  qa_chain=LLMChain(
+import random
 
-FINAL ANSWER:
+names=[
+"Alex Taylor","Jordan Smith","Chris Morgan",
+"Taylor Holdings","Morgan Risk Ltd",
+"Pacific Underwriters","Summit Brokers"
+]
 
-+64 21 555 0198 is a phone number from the document.
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\11.2hybridretreival.py
+phones=[
+"+64 21 555 0198",
+"021-555-0198",
+"64 21 5550198",
+"+64 (21) 555 0198",
+"0215550198"
+]
 
-User Query: whose number is this +64 21 555 0198
+zips=[
+"95123","94107","10001","400001","20005"
+]
 
-Running vector search...
+years=[
+"1998","2001","2005","2010","2015"
+]
 
-Running keyword search...
+noise_blocks=[
 
-Total combined chunks: 0
-C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\11.2hybridretreival.py:127: LangChainDeprecationWarning: The class `LLMChain` was deprecated in LangChain 0.1.17 and will be removed in 1.0. Use `RunnableSequence, e.g., `prompt | llm`` instead.
-  qa_chain=LLMChain(
+"""
+Inspection notes:
+Minor wear observed.
+Previous claim ref CL8821.
+Surveyor comments archived.
+""",
 
-FINAL ANSWER:
+"""
+Maintenance log fragment:
+Roof inspection passed.
+Drainage acceptable.
+Engineer reference ENG9921.
+""",
 
-Sorry, I do not have that information based on the provided context.
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> 
+"""
+Broker internal note:
+Client prefers digital comms.
+Risk appetite moderate.
+Underwriting review pending.
+""",
+
+"""
+Document appendix:
+Photos archived separately.
+Structural review recommended.
+Policy subject to renewal review.
+"""
+]
+
+formats=[
+
+lambda n,p,z,y: f"""
+INSURANCE SUBMISSION
+
+Client: {n}
+
+Contact pathways:
+Primary mobile -> {p}
+
+Construction metadata:
+Property likely built circa {y}
+
+Geographic code:
+ZIP:{z}
+""",
+
+lambda n,p,z,y: f"""
+CLIENT DATA RECORD
+
+Holder : {n}
+
+Reach at:
+Tel number {p}
+
+Asset notes:
+Construction year believed {y}
+
+Postal marker {z}
+""",
+
+lambda n,p,z,y: f"""
+UNDERWRITING SNAPSHOT
+
+Entity name {n}
+
+Communication:
+Mobile contact = {p}
+
+Risk notes:
+Dwelling erected approx {y}
+
+Location identifier {z}
+""",
+
+lambda n,p,z,y: f"""
+RISK REPORT
+
+Policy customer {n}
+
+Phone listing:
+{p}
+
+Asset built year {y}
+
+Area code {z}
+"""
+]
+
+output="complex_realistic_corpus.txt"
+
+with open(output,"w",encoding="utf-8") as f:
+
+    for i in range(15000):
+
+        name=random.choice(names)+"_"+str(i)
+
+        phone=random.choice(phones)
+
+        zipc=random.choice(zips)
+
+        year=random.choice(years)
+
+        template=random.choice(formats)
+
+        doc=template(name,phone,zipc,year)
+
+        doc+=random.choice(noise_blocks)
+
+        # Add random garbage lines
+        if random.random()>0.6:
+
+            doc+=f"\nReference ID: REF{i}{random.randint(100,999)}"
+
+        if random.random()>0.5:
+
+            doc+=f"\nInternal code ZX-{random.randint(1000,9999)}"
+
+        f.write(doc+"\n\n")
+
+print("Complex corpus generated")
+
+

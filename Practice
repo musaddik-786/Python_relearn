@@ -1,84 +1,29 @@
-import random
-import os
-
-base_text = """
-Home Insurance Underwriting Submission Report
-
-Policyholder: Alex Taylor
-Contact Number: +64 21 555 0198
-Email: alex.taylor@example.co.nz
-
-Property Overview:
-Year Built: 1998
-Construction: Timber frame
-Roof: Colorsteel
-Floors: 2
-
-Address:
-1234 Maple Ridge Lane
-San Jose
-California
-Zip: 95123
-
-Broker:
-Casey Morgan
-Harbour Risk Advisory
-
-Claim History:
-Water damage 2022
-Amount: 2480
-
-"""
-
-cities = [
-"San Jose","Auckland","Sydney","London",
-"Toronto","Melbourne","Dubai","Mumbai"
-]
-
-years=[1990,1995,1998,2001,2005,2010,2015,2020]
-
-zipcodes=["95123","94107","10001","20005","400001"]
-
-phones=[
-"+64 21 555 0198",
-"+61 488 555 111",
-"+1 408 777 222",
-"+91 98765 43210"
-]
-
-output_file="big_insurance_dataset.txt"
-
-with open(output_file,"w",encoding="utf-8") as f:
-
-    for i in range(20000):   # adjust number here
-
-        text=base_text
-
-        text=text.replace(
-            "Alex Taylor",
-            "Client_"+str(i)
-        )
-
-        text=text.replace(
-            "1998",
-            str(random.choice(years))
-        )
-
-        text=text.replace(
-            "San Jose",
-            random.choice(cities)
-        )
-
-        text=text.replace(
-            "95123",
-            random.choice(zipcodes)
-        )
-
-        text=text.replace(
-            "+64 21 555 0198",
-            random.choice(phones)
-        )
-
-        f.write(text+"\n\n")
-
-print("Dataset generated")
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\4.embeddings_my_querytopdf.py
+Traceback (most recent call last):
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\4.embeddings_my_querytopdf.py", line 78, in <module>
+    vectorstore = Chroma.from_documents(
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 1431, in from_documents
+    return cls.from_texts(
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 1365, in from_texts
+    chroma_collection.add_texts(
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 627, in add_texts
+    embeddings = self._embedding_function.embed_documents(texts)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_openai\embeddings\base.py", line 751, in embed_documents
+    return self._get_len_safe_embeddings(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_openai\embeddings\base.py", line 618, in _get_len_safe_embeddings
+    response = self.client.create(input=batch_tokens, **client_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\openai\resources\embeddings.py", line 136, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\openai\_base_client.py", line 1297, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\openai\_base_client.py", line 1070, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'code': 'RateLimitReached', 'message': 'Your requests to text-embedding-3-large for text-embedding-3-large in East US have exceeded the call rate limit for your current OpenAI S0 pricing tier. This request was for Embeddings_Create under Azure OpenAI API version 2025-01-01-preview. Please retry after 60 seconds. To increase your default rate limit, visit: https://aka.ms/oai/quotaincrease.'}}
+(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> 

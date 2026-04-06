@@ -1,13 +1,25 @@
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
+Testing Licensing & Sanction Checker MCP...
+Traceback (most recent call last):
+  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 391, in <module>
+    run_test()
+  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 79, in run_test
+    "status": true,
+              ^^^^
+NameError: name 'true' is not defined. Did you mean: 'True'?
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
+
+
 
     payload = {
     "jsonrpc": "2.0",
     "id": 1,
     "result": {
-        "status": True,
+        "status": true,
         "results": [
             {
                 "Extracted Name": "Alex and Jordan Taylor",
-                "is_Sanctioned": False
+                "is_Sanctioned": false
             }
         ],
         "Data_Filler": [
@@ -20,19 +32,13 @@
                 "business_type": "New Business",
                 "licensing_and_sanction_check": "Cleared",
                 "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-                "approval_flag": False,
+                "approval_flag": false,
                 "eligibility_check_date_time": "2026-04-06 13:04:52",
-                "Table_Name": "agent_eligibility"
+                "Table_name": "agent_eligibility"
             }
         ]
     }
 }
-HTTP Status: 200
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": false,
-        "error": "Row 0 missing Table_name"
-    }
-}
+
+
+

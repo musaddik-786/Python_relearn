@@ -1,98 +1,475 @@
+this is how i want the repsonse to be 
+{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+        "status": True,
+        "results": [
+            {
+            "Extracted Name": "Berkshire Hathaway",
+            "is_Sanctioned": True
+            }
+        ],
+        "Data_Filler": [
+            {
+            "reference_number": "1222222222222",
+            "eligibility_status": "Eligible",
+            "eligibility_check_date_time" : "2026-02-16 18:59:00",
+            "reason_summary": "Within sum insured limits and approved risk zone",
+            "line_of_business": "Commercial Property",
+            "location_risk_zone": "Medium",
+            "business_type": "New Business",
+            "licensing_sanction_check": "Cleared",
+            "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
+            "approval_flag": False,
+            "approval_date_time": "2026-03-01 02:26:38",
+            # "created_at" : "2026-02-01 15:15:15.123153",
+            "Table_name": "agent_eligibility"
+            },
+            {
+            "reference_number": "1111111111111111",
+            "eligibility_status": "Eligible",
+            "eligibility_check_date_time" : "2026-02-16 18:59:00",            
+            "reason_summary": "Within sum insured limits and approved risk zone",
+            "line_of_business": "Commercial Property",
+            "location_risk_zone": "Medium",
+            "business_type": "New Business",
+            "licensing_sanction_check": "Cleared",
+            "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
+            "approval_flag": False,
+            "approval_date_time": "2026-03-01 02:26:38",
+            # "created_at" : "2026-02-01 15:15:15.123153",            
+            "Table_name": "agent_eligibility"
+            }
+        ]
+        }
 
+        }
 
-    payload = {
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "composite_score": 250,
-    "rating": {
-      "band": 2,
-      "score_range": "[201, 351)",
-      "rating": "PREFERRED",
-      "uw_action": "Accept",
-      "premium_modifier": "[-10, 0)",
-      "required_conditions": "Standard policy; minor conditions may apply; annual review"
-    },
-    "output_file": "https://agenticai1.blob.core.windows.net/risk-results/risk_score_output_20260403_111829.json",
-    "justification": "- UW Action — ACCEPT\n\n- The submitted risk achieves a composite risk score of 250.0, placing it within the \"PREFERRED\" rating band and qualifying for standard acceptance terms with minor conditions. The primary positive contributors are the fire-resistive (concrete/steel) construction, full NFPA 13 wet pipe sprinkler coverage, and robust central station security measures, which significantly mitigate core fire and theft exposures. The property does present elevated risk due to its hospitality/hotel occupancy and its flood-prone Zone AE coastal location within Zone 3, necessitating ongoing loss control attention. However, these exposures are balanced by proactive risk management, including formalized ERM. Annual underwriting review is recommended, and minor risk improvement conditions may be applied in line with standard policy provisions."
-  },
-  "Data_Filler": [
-    {
-      "submission_id": "19D4D859A767D0BD",
-      "domain": "A",
-      "Construction_Class": 10,
-      "Overall_Building_Age": 15,
-      "Roof_Flat_TPO_EPDM": 0,
-      "HVAC_System": 0,
-      "Electrical_System": 0,
-      "Plumbing_System": 0,
-      "domain_sum": 25,
-      "weighted_sum": 25,
-      "Table name": "dummy_DomainA"
-    },
-    {
-      "submission_id": "19D4D859A767D0BD",
-      "domain": "B",
-      "occupancy_type": 75,
-      "vacancy_rate": 0,
-      "domain_sum": 75,
-      "weighted_sum": 75,
-      "Table name": "dummy_DomainB"
-    },
-    {
-      "submission_id": "19D4D859A767D0BD",
-      "domain": "C",
-      "fema_flood_zone": 80,
-      "wildfire_risk_score": 0,
-      "wind_zone_hurricane": 60,
-      "earthquake_pml": 10,
-      "hail_score": 0,
-      "domain_sum": 150,
-      "weighted_sum": 150,
-      "Table name": "dummy_DomainC"
-    },
-    {
-      "submission_id": "19D4D859A767D0BD",
-      "domain": "D",
-      "prior_carrier_departure": 0,
-      "bi_period_adequacy": 0,
-      "years_in_business": -10,
-      "domain_sum": -10,
-      "weighted_sum": 0,
-      "Table name": "dummy_DomainD"
-    },
-    {
-      "submission_id": "19D4D859A767D0BD",
-      "domain": "E",
-      "sprinkler_system": -50,
-      "fire_alarm": -20,
-      "security_system": -15,
-      "last_fire_inspection": 0,
-      "backup_power": 0,
-      "domain_sum": -85,
-      "weighted_sum": 0,
-      "Table name": "dummy_DomainE"
-    },
-    {
-      "submission_id": "19D4D859A767D0BD",
-      "domain": "F",
-      "building_code_compliance": 0,
-      "risk_management_program": -15,
-      "claims_litigation_disputes": 0,
-      "domain_sum": -15,
-      "weighted_sum": 0,
-      "Table name": "dummy_DomainF"
-    }
-  ]
-}
-
-
+now i am getting this in response
 HTTP Status: 200
 {
     "jsonrpc": "2.0",
     "id": 1,
     "result": {
-        "status": false,
-        "error": "Data_Filler missing"
+        "status": true,
+        "results": [
+            {
+                "Extracted Name": "Alex and Jordan Taylor",
+                "is_Sanctioned": false
+            },
+            {}
+        ]
     }
 }
+(venv) J
+
+database.py
+from sqlmodel import Session, select
+# from models import RefEligibilityCheck ,  AgentSubmissionIntake, AgentEligibility
+from db import get_engine
+from models import RefEligibilityCheck ,  AgentSubmissionIntake 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from sqlalchemy import and_
+from typing import Any
+import json
+import os
+
+def process_sanction_and_eligibility(line_of_business: str,is_sanctioned: bool) -> dict:
+    """
+    1. Extract is_Sanctioned (NO DEFAULTS)
+    2. Decide Eligible / Not Eligible
+    3. Fetch rule from ref_eligibility_check
+    4. Fetch latest reference_number from agent_submission_intake
+    5. Insert into agent_eligibility
+    6. Return combined response
+    """
+
+
+
+    line_of_business = line_of_business
+    is_sanctioned = is_sanctioned
+
+
+
+
+    # ---------- VALIDATION ----------
+    # if not isinstance(mcp_result, dict):
+    #     return {
+    #         "status": False,
+    #         "error": "Invalid MCP result format (expected dict)"
+    #     }
+
+
+    # results = mcp_result.get("results")
+    # if not isinstance(results, list) or not results:
+    #     return {
+    #         "status": False,
+    #         "error": "'results' missing or empty in MCP response"
+    #     }
+
+    # record = results[0]
+
+    # if "is_Sanctioned" not in record:
+    #     return {
+    #         "status": False,
+    #         "error": "'is_Sanctioned' field missing in MCP response"
+    #     }
+
+    # is_sanctioned = record["is_Sanctioned"]
+
+    # if not isinstance(is_sanctioned, bool):
+    #     return {
+    #         "status": False,
+    #         "error": "'is_Sanctioned' must be boolean"
+    #     }
+
+    # ---------- DECISION ----------
+    eligibility_status = "Not Eligible" if is_sanctioned else "Eligible"
+
+    # ---------- DB FETCH ----------
+    engine = get_engine()
+    with Session(engine) as session:
+
+
+        # ---------- FETCH LATEST reference_number ----------
+        latest_ref_stmt = (
+            select(AgentSubmissionIntake)
+            .order_by(AgentSubmissionIntake.id.desc())
+        )
+        latest_submission = session.exec(latest_ref_stmt).first()
+        print("LatestSubmission",latest_submission)
+
+        if not latest_submission or not latest_submission.reference_number:
+            return {
+                "status": False,
+                "error": "No reference_number found in agent_submission_intake"
+            }
+
+        reference_number = latest_submission.reference_number
+
+        print("This is reference number",reference_number)
+
+        # stmt = select(RefEligibilityCheck).where(
+        #     RefEligibilityCheck.eligibility_status == eligibility_status
+        # )
+
+        stmt = select(RefEligibilityCheck).where(
+            and_(
+                RefEligibilityCheck.eligibility_status == eligibility_status,
+                RefEligibilityCheck.line_of_business == line_of_business
+            )
+        )
+
+        row = session.exec(stmt).first()
+
+        if not row:
+            return {
+                "status": False,
+                "error": f"No row found for Eligibility Status = '{eligibility_status}'"
+            }
+
+        try: 
+            # now = datetime.now()
+
+            # formatted_datetime = now.strftime("%d%m%Y %I:%M:%S %p")
+            # now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
+            india_tz = ZoneInfo("Asia/Kolkata")
+            current_time_ist = datetime.now(india_tz)
+            formatted_time = current_time_ist.strftime('%Y-%m-%d %H:%M:%S')
+            # formatted_datetime = now_ist.strftime("%d%m%Y %I:%M:%S %p")
+        
+        except Exception as e:
+            return{
+            "status" : False,
+            "error": f"Error generating date and time: {e}"
+            }
+
+        print(row.eligibility_status,row.reason_summary,row.line_of_business)
+
+        # payload = {
+        #     "reference_number": reference_number,
+        #     "eligibility_status": row.eligibility_status,
+        #     "reason_summary": row.reason_summary,
+        #     "line_of_business": row.line_of_business,
+        #     "location_risk_zone": row.location_risk_zone,
+        #     "business_type": row.business_type,
+        #     "licensing_and_sanction_check": row.licensing_and_sanction_check,
+        #     "source_of_check": row.source_of_check,
+        #     "approval_flag": row.approval_flag,
+        #     "eligibility_check_date_time": formatted_time
+        # }
+        my_json = {
+            "reference_number": reference_number,
+            "eligibility_status": getattr(row, "eligibility_status", None),
+            "reason_summary": getattr(row, "reason_summary", None),
+            "line_of_business": getattr(row, "line_of_business", None),
+            "location_risk_zone": getattr(row, "location_risk_zone", None),
+            "business_type": getattr(row, "business_type", None),
+            "licensing_and_sanction_check": getattr(row, "licensing_and_sanction_check", None),
+            "source_of_check": getattr(row, "source_of_check", None),
+            "approval_flag": getattr(row, "approval_flag", None),
+            "eligibility_check_date_time": formatted_time,
+            "Table_Name" : "agent_elgibility"
+        }
+
+        file_path = os.path.join(os.getcwd(), "filename.json")
+        with open(file_path, "w", encoding="utf-8") as f:
+            # ensure_ascii=False keeps unicode readable; default=str handles non-serializable values
+            json.dump(my_json, f, ensure_ascii=False, indent=2, default=str)
+
+        
+
+
+
+        
+
+        # session.add(agent_row)
+        session.commit()
+        # session.refresh(agent_row)
+
+
+
+        # # ---------- RESPONSE ----------
+        # return {
+        #     "status": True,
+        #     "reference_number" : reference_number,
+        #     "eligibility_status": row.eligibility_status,
+        #     "reason_summary": row.reason_summary,
+        #     "line_of_business": row.line_of_business,
+        #     "location_risk_zone": row.location_risk_zone,
+        #     "business_type": row.business_type,
+        #     "licensing_and_sanction_check": row.licensing_and_sanction_check,
+        #     "source_of_check": row.source_of_check,
+        #     "approval_flag": row.approval_flag,
+        #     "eligibility_check_date_time": formatted_time
+        # }
+
+
+# if __name__ == "__main__":
+#     process_sanction_and_eligibility("RESIDENTIAL PROPERTY", False)
+
+file_router.py
+
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from handler import compare_name_with_sanctions
+
+router = APIRouter()
+
+
+class CompareRequest(BaseModel):
+    """
+    This endpoint is invoked by the Data Extraction Agent.
+    It passes the FULL Azure Blob URL of the extracted JSON in 'jsonfilepath'.
+
+    Example payload:
+    {
+      "jsonfilepath": "https://<account>.blob.core.windows.net/<container>/<path>/file.json"
+    }
+
+    The service will:
+    - Download that JSON from Azure Blob using AZURE_STORAGE_CONNECTION_STRING,
+    - Extract the name from Owner/Insured/Contact/NAMED INSURED(S),
+    - Compare it against local 'input/sanctions.csv',
+    - Return the comparison result in a JSON-RPC envelope (consistent with your duplicate attachment checker).
+    """
+    jsonfilepath: str = Field(..., description="Full Azure Blob URL to the extracted JSON.")
+    line_of_business: str = Field(..., description="Line of Business for eligibility check (e.g., 'RESIDENTIAL PROPERTY', 'Commercial Property')")
+
+@router.post(
+    "/Licensing_&_Sanction_Checker_MCP",
+    operation_id="Licensing_&_Sanction_Checker_MCP",
+    summary="Compare JSON (Owner/Insured/Contact/NAMED INSURED(S)) from blob URL with local sanctions CSV."
+)
+async def compare_files(request: CompareRequest):
+    """
+    Receives the JSON blob URL from the Data Extraction Agent and performs the comparison.
+    Returns a JSON-RPC envelope for consistency with the duplicate attachment checker.
+    """
+    try:
+        result = await compare_name_with_sanctions(json_file_url=request.jsonfilepath, LOB=request.line_of_business)
+        return JSONResponse(
+            content={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": result
+            },
+            status_code=200
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {"status": False, "error": f"Unexpected server error: {str(e)}"}
+            },
+            status_code=200
+        )
+
+
+handler.py
+
+import os
+import json
+from typing import Optional, Dict
+import pandas as pd
+from azure.storage.blob.aio import BlobServiceClient
+from azure.core.exceptions import ResourceNotFoundError
+from dotenv import load_dotenv
+from database import process_sanction_and_eligibility
+from service import _require_env, _parse_blob_url
+
+load_dotenv()
+
+AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
+LOCAL_CSV_PATH = os.path.join("input", "sanctions.csv")
+
+
+async def compare_name_with_sanctions(json_file_url: str, LOB : str) -> Dict:
+    """
+    Flow:
+      1) Parse blob URL -> (container, blob_name)
+      2) Download JSON (async)
+      3) Dynamically search for target labels in any nested structure
+      4) Read local CSV input/sanctions.csv
+      5) Case-insensitive exact match against entity_name
+      6) Save outputs to ./output and return structured result (with 'status')
+    """
+
+    try:
+        _require_env()
+    except Exception as e:
+        return {"status": False, "error": str(e)}
+
+    try:
+        container_name, blob_name = _parse_blob_url(json_file_url)
+    except Exception as e:
+        return {"status": False, "error": f"Invalid jsonfilepath: {e}"}
+
+    try:
+        async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as blob_service:
+            container_client = blob_service.get_container_client(container_name)
+            blob_client = container_client.get_blob_client(blob_name)
+            try:
+                await blob_client.get_blob_properties()
+            except ResourceNotFoundError:
+                return {"status": False, "error": f"JSON blob not found: container='{container_name}', blob='{blob_name}'"}
+
+            stream = await blob_client.download_blob()
+            raw_bytes = await stream.readall()
+    except Exception as e:
+        return {"status": False, "error": f"Error connecting to Azure Blob Storage: {e}"}
+
+    # Python dict
+    try:
+        data = json.loads(raw_bytes.decode("utf-8"))
+    except Exception as e:
+        return {"status": False, "error": f"Failed to parse JSON: {e}"}
+
+    # Target labels to search for dynamically
+    target_labels = {"ownername", "insuredname", "contactname", "namedinsured(s)", 
+                     "applicant/firstnameinsured", "insured/applicant", "namedinsured", 
+                     "namedinsureds", "firstnameinsured", "applicantname","clientname","nameandmailingaddress"}
+    extracted_name: Optional[str] = None
+
+    def search_nested(data: dict) -> Optional[str]:
+        """
+        Recursively search for any field matching target labels in nested dictionaries.
+        """
+        for key, value in data.items():
+            if isinstance(value, dict):  # If the value is a nested dictionary, recurse
+                result = search_nested(value)
+                if result:
+                    return result
+            elif isinstance(key, str):
+                normalized_key = key.lower().replace(" ", "").replace(":", "")
+                if normalized_key in target_labels:
+                    return value.split(",")[0].strip()  # Extract name before confidence value
+        return None
+
+    extracted_name = search_nested(data)
+
+    if not extracted_name:
+        return {"status": False, "error": "No matching name field found in JSON."}
+
+    if not os.path.exists(LOCAL_CSV_PATH):
+        return {"status": False, "error": f"Local CSV not found at '{LOCAL_CSV_PATH}'"}
+
+    try:
+        csv_df = pd.read_csv(LOCAL_CSV_PATH)
+    except Exception as e:
+        return {"status": False, "error": f"Failed to read CSV '{LOCAL_CSV_PATH}': {e}"}
+
+    if "entity_name" not in csv_df.columns:
+        return {"status": False, "error": "CSV must contain 'entity_name' column"}
+
+    def norm(s: str) -> str:
+        return s.strip().lower() if isinstance(s, str) else ""
+
+    entity_set = {norm(x) for x in csv_df["entity_name"].dropna() if isinstance(x, str) and x.strip()}
+    is_unique = norm(extracted_name) in entity_set
+
+    results = [{"Extracted Name": extracted_name, "is_Sanctioned": is_unique},{}]
+
+    try:
+        os.makedirs("./output", exist_ok=True)
+        json_output = "./output/comparison_results.json"
+        with open(json_output, "w", encoding="utf-8") as f:
+            json.dump({"results": results}, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        return {"status": False, "error": f"Failed saving results: {e}"}
+
+    try:
+        sanction_flag = results[0]["is_Sanctioned"]
+        process_sanction_and_eligibility(line_of_business=LOB, is_sanctioned=sanction_flag)
+    except Exception as e:
+        return {"status": False, "error": f"Failed creating json: {e}"}
+
+    return {"status": True, "results": results}
+
+service.py
+import os
+from urllib.parse import urlparse, unquote
+from dotenv import load_dotenv
+
+load_dotenv()
+
+AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
+
+
+def _require_env() -> None:
+    """Ensure required environment variables exist."""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Missing AZURE_STORAGE_CONNECTION_STRING in .env")
+
+
+def _parse_blob_url(url: str) -> tuple[str, str]:
+    """
+    Parse an Azure Blob URL and return (container_name, blob_path).
+    Example URL:
+      https://account.blob.core.windows.net/output-results/folder/name.json
+    Returns:
+      ("output-results", "folder/name.json")
+    """
+    parsed = urlparse(url)
+    if not parsed.scheme.startswith("http"):
+        raise ValueError("jsonfilepath must be a valid http(s) URL to Azure Blob Storage.")
+
+    path = parsed.path.lstrip("/")
+    if "/" not in path:
+        raise ValueError("jsonfilepath must include both container and blob path.")
+    parts = path.split("/", 1)
+    container = parts[0]
+    blob_path = parts[1]
+    return unquote(container), unquote(blob_path)
+
+
+
+
+
+
+
+

@@ -27,20 +27,12 @@
         ]
     }
 }
-
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
 HTTP Status: 200
 {
     "jsonrpc": "2.0",
     "id": 1,
     "result": {
-        "status": true,
-        "result": {
-            "status": true,
-            "rows_inserted": 2,
-            "rows_failed": 0,
-            "errors": []
-        }
+        "status": false,
+        "error": "Row 0 missing Table_name"
     }
 }

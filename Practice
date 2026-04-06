@@ -1,127 +1,275 @@
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> python .\4.embeddings_my_querytopdf.py
-Traceback (most recent call last):
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\4.embeddings_my_querytopdf.py", line 78, in <module>
-    vectorstore = Chroma.from_documents(
-                  ^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 1431, in from_documents
-    return cls.from_texts(
-           ^^^^^^^^^^^^^^^
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 1365, in from_texts
-    chroma_collection.add_texts(
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_chroma\vectorstores.py", line 627, in add_texts
-    embeddings = self._embedding_function.embed_documents(texts)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_openai\embeddings\base.py", line 751, in embed_documents
-    return self._get_len_safe_embeddings(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\langchain_openai\embeddings\base.py", line 618, in _get_len_safe_embeddings
-    response = self.client.create(input=batch_tokens, **client_kwargs)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\openai\resources\embeddings.py", line 136, in create
-    return self._post(
-           ^^^^^^^^^^^
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\openai\_base_client.py", line 1297, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES\venv\Lib\site-packages\openai\_base_client.py", line 1070, in request
-    raise self._make_status_error_from_response(err.response) from None
-openai.RateLimitError: Error code: 429 - {'error': {'code': 'RateLimitReached', 'message': 'Your requests to text-embedding-3-large for text-embedding-3-large in East US have exceeded the call rate limit for your current OpenAI S0 pricing tier. This request was for Embeddings_Create under Azure OpenAI API version 2025-01-01-preview. Please retry after 60 seconds. To increase your default rate limit, visit: https://aka.ms/oai/quotaincrease.'}}
-(venv) PS C:\Users\2000137378\Desktop\newproject\RAG_PIPELINES> 
+handler.py
 
 
+from service import database_filler
+from service import process_database
+async def database_filler_start(result:dict):
+   try:
+       rows = await database_filler(result)
+   except Exception as e:
+       return {
+           "status":False,
+           "error":str(e)
+       }
+   try:
+       db_result = process_database(rows)
+   except Exception as e:
+       return {
+           "status":False,
+           "error":str(e)
+       }
+   return {
+       "status":True,
+       "result":db_result
+   }
+
+from models import AgentEligibility
+
+mapper.py
+TABLE_MODEL_MAP = {
+    "dummy_agent_eligibility" : AgentEligibility
+}
+
+models.py
+
+from sqlmodel import SQLModel, Field, Column
+
+from sqlalchemy import String, Boolean, TIMESTAMP, Integer
+
+from typing import Optional
+
+from datetime import datetime
 
 
+class AgentEligibility(SQLModel, table=True):
 
+    __tablename__ = "dummy_agent_eligibility"
 
-
-
-
-
-from langchain_chroma import Chroma
-from langchain_openai import AzureOpenAIEmbeddings
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
-from dotenv import load_dotenv
-from langchain_core.documents import Document
-import os
-
-###split_text=--------------------------------------------------------------
-load_dotenv()
-
-# embeddings = AzureOpenAIEmbeddings(
-#     azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
-#     openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-#     openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-#     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-#     chunk_size=1024  # Adding required chunk_size parameter
-# )
-
-# text_splitter = RecursiveCharacterTextSplitter(
-#     chunk_size=int(os.getenv("CHUNK_SIZE", "800")),
-#     chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "100")),
-#     length_function=len,
-# )
-
-# loader = TextLoader("C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\mytext.txt", encoding="utf-8")
-# documents = loader.load() #THIS GIVES US A LIST OF DOCUMENT OBJECTS BUT WE NEED STRING AS SPLIT_TEXT EXPECTS A STRING NOT A DOCUMENT OBJECT
-# document_text = documents[0].page_content #WE EXTRACT THE STRING FROM THE DOCUMENT OBJECT TO PASS IT TO SPLIT_TEXT
-
-# chunks = text_splitter.split_text(document_text) #THIS GIVES US A LIST OF STRINGS (CHUNKS) WHICH WE CAN THEN CONVERT TO DOCUMENT OBJECTS TO PASS TO CHROMA
-
-# my_dir = os.path.dirname(os.path.abspath(__file__))
-# print(f"Current directory: {my_dir}")
-
-
-# Now we have chunks as a list of strings. We need to convert them to Document objects to pass to Chroma.
-
-# docs = []
-# for chunk in chunks:
-#     docs.append(Document(page_content=chunk))
-
-# vectorstore = Chroma.from_documents(
-#     # documents=chunks, #WE CANNOT PASS THE LIST OF STRINGS (CHUNKS) TO CHROMA BECAUSE IT EXPECTS A LIST OF DOCUMENT OBJECTS. WE NEED TO CONVERT THE CHUNKS TO DOCUMENT OBJECTS FIRST.
-#     documents=docs,   #WE PASS THE LIST OF DOCUMENT OBJECTS TO CHROMA
-#     embedding=embeddings,
-#     collection_name="my_collection",
-#     persist_directory=my_dir
-#     )
-
-
-
-
-
-###------------------SPLIT DOCUMENT
-
-#below is the exact above code this time using SplitDocuments instead of split_text to directly get Document objects instead of strings which we then pass to Chroma without needing to convert them to Document objects again.
-
-load_dotenv()
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
-    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    chunk_size=1024  # Adding required chunk_size parameter
-)
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=int(os.getenv("CHUNK_SIZE", "800")),
-    chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "100")),
-    length_function=len,
-)
-loader = TextLoader("C:\\Users\\2000137378\\Desktop\\newproject\\RAG_PIPELINES\\mytext.txt", encoding="utf-8")
-documents = loader.load() #THIS GIVES US A LIST OF DOCUMENT OBJECTS BUT WE NEED
-    # TO SPLIT THEM INTO CHUNKS AS DOCUMENT OBJECTS TO PASS TO CHROMA
-chunks = text_splitter.split_documents(documents)
-# my_dir = os.path.dirname(os.path.abspath(__file__))
-my_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "input")
-
-vectorstore = Chroma.from_documents(
-    documents=chunks, #NOW WE CAN PASS THE CHUNKS DIRECTLY TO CHROMA BECAUSE THEY ARE ALREADY DOCUMENT OBJECTS
-    embedding=embeddings,
-    collection_name="my_collection",
-    persist_directory=my_dir
+    # id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(
+    default=None,
+    sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
     )
 
+    reference_number: Optional[str] = Field(
 
-print(len(chunks))
-# print(f"first Chunk: {chunks[0][:100]}...")
-print(f"first Chunk: {chunks[0].page_content[:100]}...")
+        sa_column=Column("reference_number", String, nullable=True)
+
+    )
+
+    eligibility_status: Optional[str] = Field(
+
+        sa_column=Column("eligibility_status", String, nullable=True)
+
+    )
+
+    eligibility_check_date_time: Optional[datetime] = Field(
+
+        sa_column=Column("eligibility_check_date_time", TIMESTAMP, nullable=True)
+
+    )
+
+    reason_summary: Optional[str] = Field(
+
+        sa_column=Column("reason_summary", String, nullable=True)
+
+    )
+
+    line_of_business: Optional[str] = Field(
+
+        sa_column=Column("line_of_business", String, nullable=True)
+
+    )
+
+    location_risk_zone: Optional[str] = Field(
+
+        sa_column=Column("location_risk_zone", String, nullable=True)
+
+    )
+
+    business_type: Optional[str] = Field(
+
+        sa_column=Column("business_type", String, nullable=True)
+
+    )
+
+    licensing_sanction_check: Optional[str] = Field(
+
+        sa_column=Column("licensing_sanction_check", String, nullable=True)
+
+    )
+
+    source_of_check: Optional[str] = Field(
+
+        sa_column=Column("source_of_check", String, nullable=True)
+
+    )
+
+    approval_flag: Optional[bool] = Field(
+
+        sa_column=Column("approval_flag", Boolean, nullable=True)
+
+    )
+
+    approval_date_time: Optional[datetime] = Field(
+
+        sa_column=Column("approval_date_time", TIMESTAMP, nullable=True)
+
+    )
+ 
+service.py
+
+from models import AgentEligibility
+
+from sqlmodel import Session
+
+from db import get_engine
+
+from mapper import TABLE_MODEL_MAP
+
+from datetime import datetime
+
+async def database_filler(result:dict):
+
+#    print(f"[DEBUG] database_filler called")
+
+#    print(f"[DEBUG] result type: {type(result)}")
+
+#    print(f"[DEBUG] result value: {result}")
+
+   if "Data_Filler" not in result:
+
+       raise Exception("Data_Filler missing")
+
+   data=result["Data_Filler"]
+
+#    print(f"[DEBUG] Data_Filler value: {data}")
+
+#    print(f"[DEBUG] Data_Filler type: {type(data)}")
+
+   if not isinstance(data,list):
+
+       raise Exception("Data_Filler must be list")
+
+   processed=[]
+
+   for index,item in enumerate(data):
+
+    #    print(f"[DEBUG] Processing item {index}: {item}")
+
+       if "Table_name" not in item:
+
+           raise Exception(f"Row {index} missing Table_name")
+
+       table=item["Table_name"]
+
+       row=item.copy()
+
+       row.pop("Table_name")
+
+       processed.append({
+
+           "table":table,
+
+           "data":row,
+
+           "row_number":index
+
+       })
+
+#    print(f"[DEBUG] processed rows: {processed}")
+
+   return processed
+
+
+i am unable to visualize this flow use dummy example data and explain the flow
+
+
+def process_database(rows:list):
+
+   engine=get_engine()
+
+   inserted=0
+
+   errors=[]
+
+   with Session(engine) as session:
+
+       for row in rows:
+
+           try:
+
+               table=row["table"]
+
+               data=row["data"]
+
+               row_number=row["row_number"]
+
+               if table not in TABLE_MODEL_MAP:
+
+                   raise Exception(f"Table mapping missing for {table}")
+
+               model=TABLE_MODEL_MAP[table]
+
+               filtered_data={
+
+                   k:v for k,v in data.items()
+
+                   if k in model.model_fields
+
+               }
+
+               for field in [
+
+                   "approval_date_time",
+
+                   "eligibility_check_date_time"
+
+               ]:
+
+                   if field in filtered_data:
+
+                       if isinstance(filtered_data[field],str):
+
+                           filtered_data[field]=datetime.fromisoformat(
+
+                               filtered_data[field].replace(" ","T")
+
+                           )
+
+               db_row=model(**filtered_data)
+
+               session.add(db_row)
+
+            #    session.flush()        # ← flush immediately to get DB-generated id
+
+            #    session.refresh(db_row) # ← refresh so id is populated
+
+               inserted+=1
+
+           except Exception as e:
+
+               session.rollback()
+
+               errors.append({
+
+                   "row":row_number,
+
+                   "error":str(e)
+
+               })
+
+       session.commit()
+
+   return {
+
+       "status":True,
+
+       "rows_inserted":inserted,
+
+       "rows_failed":len(errors),
+
+       "errors":errors
+
+   }
+ 

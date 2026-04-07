@@ -1,57 +1,47 @@
-import asyncio
-import json
+wait i forgot you to sent roueter.py
+
+from fastapi import APIRouter
 
 from handler import database_filler_start
 
-
-def run_test():
-
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "result": {
-            "composite_score": 250,
-            "rating": {
-                "band": 2,
-                "score_range": "[201, 351)",
-                "rating": "PREFERRED"
-            }
-        },
-        "Data_Filler": [
-            {
-                "submission_id": "19D6220DA5037FF9",
-                "domain": "A",
-                "construction_class": 10,
-                "overall_building_age": 15,
-                "roof_flat_tpo_epdm": 0,
-                "hvac_system": 0,
-                "electrical_system": 0,
-                "plumbing_system": 0,
-                "domain_sum": 25,
-                "weighted_sum": 25,
-                "Table_name": "DomainA"
-            }
-        ]
-    }
-
-    print("Testing Licensing & Sanction Checker MCP...")
-
-    # IMPORTANT: pass full payload
-    response = asyncio.run(database_filler_start(payload))
-
-    print("HTTP Status: 200")
-
-    print(json.dumps({
-
-        "jsonrpc":"2.0",
-
-        "id":1,
-
-        "result":response
-
-    },indent=4))
+router = APIRouter()
 
 
-if __name__ == "__main__":
+@router.post(
 
-    run_test()
+    "/data_filler_mcp",
+
+    operation_id="data_filler_mcp"
+
+)
+
+async def data_filler_mcp(payload: dict):
+
+    try:
+
+        result = payload.get("result")
+
+        response = await database_filler_start(result)
+
+        return {
+
+            "jsonrpc":"2.0",
+
+            "id":payload.get("id"),
+
+            "result":response
+
+        }
+
+    except Exception as e:
+
+        return {
+
+            "jsonrpc":"2.0",
+
+            "id":payload.get("id"),
+
+            "error":str(e)
+
+        }
+ 

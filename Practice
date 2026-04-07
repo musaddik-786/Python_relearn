@@ -1,516 +1,57 @@
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-HTTP Status: 200
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": false,
-        "error": "Data_Filler missing"
-    }
-}
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
+import asyncio
+import json
 
+from handler import database_filler_start
 
 
-service.py
-
-from models import AgentEligibility
-from sqlmodel import Session
-from db import get_engine
-from mapper import TABLE_MODEL_MAP
-from datetime import datetime
-
-
-async def database_filler(result:dict):
-
-    def find_data_filler(obj):
-
-        # search in dictionary
-        if isinstance(obj, dict):
-
-            if "Data_Filler" in obj:
-                return obj["Data_Filler"]
-
-            for value in obj.values():
-
-                found = find_data_filler(value)
-
-                if found is not None:
-                    return found
-
-        # search in list
-        elif isinstance(obj, list):
-
-            for item in obj:
-
-                found = find_data_filler(item)
-
-                if found is not None:
-                    return found
-
-        return None
-
-
-    data = find_data_filler(result)
-
-    # FIX: must check None not empty
-    if data is None:
-        raise Exception("Data_Filler missing")
-
-    if not isinstance(data,list):
-        raise Exception("Data_Filler must be list")
-
-
-    processed=[]
-
-    for index,item in enumerate(data):
-
-        if "Table_name" not in item:
-            raise Exception(f"Row {index} missing Table_name")
-
-        table=item["Table_name"]
-
-        row=item.copy()
-
-        row.pop("Table_name")
-
-        processed.append({
-
-            "table":table,
-
-            "data":row,
-
-            "row_number":index
-
-        })
-
-    return processed
-
-
-
-def process_database(rows:list):
-
-    engine=get_engine()
-
-    inserted=0
-
-    errors=[]
-
-    with Session(engine) as session:
-
-        for row in rows:
-
-            try:
-
-                table=row["table"]
-
-                data=row["data"]
-
-                row_number=row["row_number"]
-
-                if table not in TABLE_MODEL_MAP:
-
-                    raise Exception(f"Table mapping missing for {table}")
-
-                model=TABLE_MODEL_MAP[table]
-
-                filtered_data={
-
-                    k:v for k,v in data.items()
-
-                    if k in model.model_fields
-
-                }
-
-                for field in [
-
-                    "approval_date_time",
-
-                    "eligibility_check_date_time"
-
-                ]:
-
-                    if field in filtered_data:
-
-                        if isinstance(filtered_data[field],str):
-
-                            filtered_data[field]=datetime.fromisoformat(
-
-                                filtered_data[field].replace(" ","T")
-
-                            )
-
-                db_row=model(**filtered_data)
-
-                session.add(db_row)
-
-                inserted+=1
-
-            except Exception as e:
-
-                session.rollback()
-
-                errors.append({
-
-                    "row":row_number,
-
-                    "error":str(e)
-
-                })
-
-        session.commit()
-
-    return {
-
-        "status":True,
-
-        "rows_inserted":inserted,
-
-        "rows_failed":len(errors),
-
-        "errors":errors
-
-    }
-
-
-hadnler.py
-
-
-
-
-
-from service import database_filler
-from service import process_database
-async def database_filler_start(result:dict):
-   try:
-       rows = await database_filler(result)
-   except Exception as e:
-       return {
-           "status":False,
-           "error":str(e)
-       }
-   try:
-       db_result = process_database(rows)
-   except Exception as e:
-       return {
-           "status":False,
-           "error":str(e)
-       }
-   return {
-       "status":True,
-       "result":db_result
-   }
-
-db.py
-import os
-from sqlmodel import create_engine
-from sqlalchemy.pool import NullPool
-from dotenv import load_dotenv
-
-load_dotenv()
-
-
-def get_engine():
-    return create_engine(
-        f"postgresql+psycopg://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}"
-        f"@{os.getenv('PGHOST')}:{os.getenv('PGPORT', '5432')}/{os.getenv('PGDATABASE')}",
-        poolclass=NullPool,
-        # pool_pre_ping= True,
-        echo=False
-    )
-
-
-mapper.py
-from models import AgentEligibility, AgentRiskDomainA
-
-TABLE_MODEL_MAP = {
-    "agent_eligibility" : AgentEligibility,
-    "DomainA" : AgentRiskDomainA
-}
-
-models.py
-
-from sqlmodel import SQLModel, Field, Column
-
-from sqlalchemy import String, Boolean, TIMESTAMP, Integer
-
-from typing import Optional
-
-from datetime import datetime
-
-
-class AgentEligibility(SQLModel, table=True):
-
-    __tablename__ = "agent_eligibility"
-
-    # id: Optional[int] = Field(default=None, primary_key=True)
-    id: Optional[int] = Field(
-    default=None,
-    sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-    )
-
-    reference_number: Optional[str] = Field(
-
-        sa_column=Column("reference_number", String, nullable=True)
-
-    )
-
-    eligibility_status: Optional[str] = Field(
-
-        sa_column=Column("eligibility_status", String, nullable=True)
-
-    )
-
-    eligibility_check_date_time: Optional[datetime] = Field(
-
-        sa_column=Column("eligibility_check_date_time", TIMESTAMP, nullable=True)
-
-    )
-
-    reason_summary: Optional[str] = Field(
-
-        sa_column=Column("reason_summary", String, nullable=True)
-
-    )
-
-    line_of_business: Optional[str] = Field(
-
-        sa_column=Column("line_of_business", String, nullable=True)
-
-    )
-
-    location_risk_zone: Optional[str] = Field(
-
-        sa_column=Column("location_risk_zone", String, nullable=True)
-
-    )
-
-    business_type: Optional[str] = Field(
-
-        sa_column=Column("business_type", String, nullable=True)
-
-    )
-
-    licensing_sanction_check: Optional[str] = Field(
-
-        sa_column=Column("licensing_sanction_check", String, nullable=True)
-
-    )
-
-    source_of_check: Optional[str] = Field(
-
-        sa_column=Column("source_of_check", String, nullable=True)
-
-    )
-
-    approval_flag: Optional[bool] = Field(
-
-        sa_column=Column("approval_flag", Boolean, nullable=True)
-
-    )
-
-    approval_date_time: Optional[datetime] = Field(
-
-        sa_column=Column("approval_date_time", TIMESTAMP, nullable=True)
-
-    )
- 
-
-class AgentRiskDomainA(SQLModel, table=True):
-
-    __tablename__ = "domaina"
-
-    id: Optional[int] = Field(
-
-        default=None,
-
-        sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-
-    )
-
-    submission_id: Optional[str] = Field(
-
-        sa_column=Column("submission_id", String(50), nullable=True)
-
-    )
-
-    domain: Optional[str] = Field(
-
-        sa_column=Column("domain", String, nullable=True)
-
-    )
-
-    construction_class: Optional[int] = Field(
-
-        sa_column=Column("construction_class", Integer, nullable=True)
-
-    )
-
-    overall_building_age: Optional[int] = Field(
-
-        sa_column=Column("overall_building_age", Integer, nullable=True)
-
-    )
-
-    roof_flat_tpo_epdm: Optional[int] = Field(
-
-        sa_column=Column("roof_flat_tpo_epdm", Integer, nullable=True)
-
-    )
-
-    hvac_system: Optional[int] = Field(
-
-        sa_column=Column("hvac_system", Integer, nullable=True)
-
-    )
-
-    electrical_system: Optional[int] = Field(
-
-        sa_column=Column("electrical_system", Integer, nullable=True)
-
-    )
-
-    plumbing_system: Optional[int] = Field(
-
-        sa_column=Column("plumbing_system", Integer, nullable=True)
-
-    )
-
-    domain_sum: Optional[int] = Field(
-
-        sa_column=Column("domain_sum", Integer, nullable=True)
-
-    )
-
-    weighted_sum: Optional[int] = Field(
-
-        sa_column=Column("weighted_sum", Integer, nullable=True)
-
-    )
-
-
-testscript.py
+def run_test():
 
     payload = {
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "composite_score": 250,
-    "rating": {
-      "band": 2,
-      "score_range": "[201, 351)",
-      "rating": "PREFERRED",
-      "uw_action": "Accept",
-      "premium_modifier": "[-10, 0)",
-      "required_conditions": "Standard policy; minor conditions may apply; annual review"
-    },
-    "output_file": "https://agenticai1.blob.core.windows.net/risk-results/risk_score_output_20260406_154003.json",
-    "justification": "- UW Action — ACCEPT  \n- The property qualifies for a \"PREFERRED\" risk rating, primarily supported by its fire resistive construction and comprehensive NFPA 13 sprinkler coverage, which significantly mitigate core property perils.  \n- Despite location exposures due to flood zone (Zone AE) and hurricane zone proximity, these are offset by the presence of central station fire/security monitoring and formal enterprise risk management practices.  \n- The hospitality occupancy class is inherently higher risk, but this is adequately controlled by high levels of active protection and operational risk management standards.  \n- Given the composite risk score and domain performance, the underwriting assessment supports acceptance at standard policy terms, subject to minor conditions and routine annual review."
-  },
-  "Data_Filler": [
-    {
-      "submission_id": "19D6220DA5037FF9",
-      "domain": "A",
-      "construction_class": 10,
-      "overall_building_age": 15,
-      "roof_flat_tpo_epdm": 0,
-      "hvac_system": 0,
-      "electrical_system": 0,
-      "plumbing_system": 0,
-      "domain_sum": 25,
-      "weighted_sum": 25,
-      "Table_name": "DomainA"
-    },
-    {
-      "submission_id": "19D6220DA5037FF9",
-      "domain": "B",
-      "occupancy_type": 75,
-      "domain_sum": 75,
-      "weighted_sum": 75,
-      "Table_name": "DomainB"
-    },
-    {
-      "submission_id": "19D6220DA5037FF9",
-      "domain": "C",
-      "fema_flood_zone": 80,
-      "wildfire_risk_score": 0,
-      "wind_zone_hurricane": 60,
-      "earthquake_pml": 10,
-      "hail_score": 0,
-      "domain_sum": 150,
-      "weighted_sum": 150,
-      "Table_name": "DomainC"
-    },
-    {
-      "submission_id": "19D6220DA5037FF9",
-      "domain": "D",
-      "prior_carrier_departure": 0,
-      "bi_period_adequacy": 0,
-      "years_in_business": -10,
-      "domain_sum": -10,
-      "weighted_sum": 0,
-      "Table_name": "DomainD"
-    },
-    {
-      "submission_id": "19D6220DA5037FF9",
-      "domain": "E",
-      "sprinkler_system": -50,
-      "fire_alarm": -20,
-      "security_system": -15,
-      "last_fire_inspection": 0,
-      "backup_power": 0,
-      "domain_sum": -85,
-      "weighted_sum": 0,
-      "Table_name": "DomainE"
-    },
-    {
-      "submission_id": "19D6220DA5037FF9",
-      "domain": "F",
-      "building_code_compliance": 0,
-      "risk_management_program": -15,
-      "claims_litigation_disputes": 0,
-      "domain_sum": -15,
-      "weighted_sum": 0,
-      "Table_name": "DomainF"
-    }
-  ]
-}
-
-
-
-or 
-
-    payload = json.loads("""
-    {
-        
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": true,
-        "results": [
-            {
-                "Extracted Name": "Alex and Jordan Taylor",
-                "is_Sanctioned": false
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "composite_score": 250,
+            "rating": {
+                "band": 2,
+                "score_range": "[201, 351)",
+                "rating": "PREFERRED"
             }
-        ],
+        },
         "Data_Filler": [
             {
-                "reference_number": "19C669E626509D51",
-                "eligibility_status": "Eligible",
-                "reason_summary": "Within sum insured limits and approved risk zone",
-                "line_of_business": "Commercial Property",
-                "location_risk_zone": "Medium",
-                "business_type": "New Business",
-                "licensing_and_sanction_check": "Cleared",
-                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-                "approval_flag": false,
-                "eligibility_check_date_time": "2026-04-06 13:04:52",
-                "Table_name": "agent_eligibility"
+                "submission_id": "19D6220DA5037FF9",
+                "domain": "A",
+                "construction_class": 10,
+                "overall_building_age": 15,
+                "roof_flat_tpo_epdm": 0,
+                "hvac_system": 0,
+                "electrical_system": 0,
+                "plumbing_system": 0,
+                "domain_sum": 25,
+                "weighted_sum": 25,
+                "Table_name": "DomainA"
             }
         ]
     }
-}""")
 
-or can be any structure
+    print("Testing Licensing & Sanction Checker MCP...")
 
+    # IMPORTANT: pass full payload
+    response = asyncio.run(database_filler_start(payload))
+
+    print("HTTP Status: 200")
+
+    print(json.dumps({
+
+        "jsonrpc":"2.0",
+
+        "id":1,
+
+        "result":response
+
+    },indent=4))
+
+
+if __name__ == "__main__":
+
+    run_test()

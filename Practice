@@ -1,44 +1,269 @@
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-Traceback (most recent call last):
-  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 391, in <module>
-    run_test()
-  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 79, in run_test
-    "status": true,
-              ^^^^
-NameError: name 'true' is not defined. Did you mean: 'True'?
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
+this is the code 
 
+async def guidewire_api_call_homeowners(blob_url: str) -> Dict[str, Any]:
+    """
+    Orchestrator function for HomeOwners (Residential Insurance) quote generation.
+    
+    Reads a residential insurance extraction JSON from Azure Blob and orchestrates
+    the creation of a HomeOwners quote in Guidewire PolicyCenter through the following steps:
+    
+    1. Create Account (from extracted company/address data)
+    2. Create Submission/Job (from extracted effective date and state)
+    3. Configure HomeownersLine (prior insurance info - hardcoded)
+    4. Add 4 Line-level Coverages (all hardcoded)
+    5. Create Dwelling (property characteristics - hardcoded)
+    6. Add 3 Dwelling-level Coverages (all hardcoded)
+    7. Generate Quote
+    8. Save output to Azure Blob
+    
+    Only 7 fields are extracted from the document:
+    - Company Name, Organization Type
+    - Address Line 1, City, State, Zip Code
+    - Effective Date
+    
+    Everything else (dwelling details, coverages, prior insurance info) is hardcoded.
+    
+    Args:
+        blob_url: Azure Blob URL pointing to extracted residential insurance JSON
+        
+    Returns:
+        Dict with status, jobId, quote details, and output blob URL
+        or error dict if any step fails
+    """
+    try:
+        _require_env()
+    except Exception as e:
+        return {"status": False, "error": f"Environment misconfigured: {e}"}
 
+    # Step 1: Read JSON from Blob
+    try:
+        document = await read_json_from_blob(blob_url)
+        print("✓ Document read from blob")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to read blob: {e}"}
+    
+    # Step 2: Map extracted data to model
+    try:
+        homeowners_data = map_document_to_homeowners_data(document)
+        print("✓ Data mapped to QuoteDataHomeowners")
+        print(f"  Company: {homeowners_data.company_name}")
+        print(f"  State: {homeowners_data.state}")
+        print(f"  Effective Date: {homeowners_data.job_effective_date}")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to map data: {e}"}
 
-    payload = {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": true,
-        "results": [
-            {
-                "Extracted Name": "Alex and Jordan Taylor",
-                "is_Sanctioned": false
-            }
-        ],
-        "Data_Filler": [
-            {
-                "reference_number": "19C669E626509D51",
-                "eligibility_status": "Eligible",
-                "reason_summary": "Within sum insured limits and approved risk zone",
-                "line_of_business": "Commercial Property",
-                "location_risk_zone": "Medium",
-                "business_type": "New Business",
-                "licensing_and_sanction_check": "Cleared",
-                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-                "approval_flag": false,
-                "eligibility_check_date_time": "2026-04-06 13:04:52",
-                "Table_name": "agent_eligibility"
-            }
-        ]
+    # Step 3: Create Account in Guidewire
+    try:
+        account_resp = post("/account/v1/accounts", build_account_payload(homeowners_data))
+        account_id = account_resp["data"]["attributes"]["id"]
+        print(f"✓ Account created: {account_id}")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to create account: {e}"}
+
+    # Step 4: Create Job (Submission) in Guidewire
+    try:
+        job_payload = build_job_payload(account_id, homeowners_data)
+        # Override product ID for HomeOwners
+        job_payload["data"]["attributes"]["product"]["id"] = "HomeownersProduct"
+        
+        job_resp = post("/job/v1/submissions", job_payload)
+        job_id = job_resp["data"]["attributes"]["id"]
+        print(f"✓ Job created: {job_id}")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to create job: {e}"}
+
+    # Step 5: Configure HomeownersLine (PATCH)
+    try:
+        patch(
+            f"/job/v1/jobs/{job_id}/lines/HomeownersLine",
+            build_homeowners_line_payload(homeowners_data)
+        )
+        print("✓ HomeownersLine configured")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to configure HomeownersLine: {e}"}
+
+    # Step 6: Add 4 Line-level Coverages
+    try:
+        for i, coverage in enumerate(get_line_level_coverages(), 1):
+            post(
+                f"/job/v1/jobs/{job_id}/lines/HomeownersLine/coverages",
+                {"data": {"attributes": coverage}}
+            )
+        print(f"✓ Added 4 line-level coverages")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to add line coverages: {e}"}
+
+    # Step 7: Create Dwelling (Risk Object)
+    try:
+        dwelling_resp = post(
+            f"/job/v1/jobs/{job_id}/lines/HomeownersLine/dwellings",
+            build_dwelling_payload(homeowners_data)
+        )
+        dwelling_id = dwelling_resp["data"]["attributes"]["id"]
+        print(f"✓ Dwelling created: {dwelling_id}")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to create dwelling: {e}"}
+
+    # Step 8: Add 3 Dwelling-level Coverages
+    try:
+        for i, coverage in enumerate(get_dwelling_level_coverages(), 1):
+            post(
+                f"/job/v1/jobs/{job_id}/lines/HomeownersLine/dwellings/{dwelling_id}/coverages",
+                {"data": {"attributes": coverage}}
+            )
+        print(f"✓ Added 3 dwelling-level coverages")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to add dwelling coverages: {e}"}
+
+    # Step 9: Generate Quote
+    try:
+        quote_resp = post(f"/job/v1/jobs/{job_id}/quote", {})
+        print("✓ Quote generated")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to generate quote: {e}"}
+
+    # Step 10: Parse blob URL and extract reference ID
+    try:
+        container, blob_path, ref_id, name = _ref_parse_blob_url(blob_url)
+        print(f"✓ Blob URL parsed")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to extract name from blob url: {e}"}
+
+    # Step 11: Save quote response to blob
+    try:
+        output_blob_url = await save_json_output_to_blob(ref_id, name, quote_resp)
+        print(f"✓ Quote saved to blob")
+    except Exception as e:
+        return {"status": False, "error": f"Failed to save output to blob: {e}"}
+
+    # Return success response
+    return {
+        "status": True,
+        "jobId": job_id,
+        "quote": quote_resp,
+        "output_blob_url": output_blob_url,
     }
+
+
+below is the api 
+{
+  "info": {
+    "_postman_id": "228095c6-99d3-4881-8189-8ec2743741f4",
+    "name": "HomeOwners",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25147181",
+    "_collection_link": "https://go.postman.co/collection/25147181-228095c6-99d3-4881-8189-8ec2743741f4?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Composite-HomeOwners",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let response = pm.response.json();\r",
+              "const jobId = response.selections[1].body.data.attributes.id;\r",
+              "const jobNumber = response.selections[1].body.data.attributes.jobNumber;\r",
+              "pm.collectionVariables.set('jobId', jobId);\r",
+              "pm.collectionVariables.set('jobNumber', jobNumber);\r",
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "accept",
+            "value": "application/json"
+          },
+          {
+            "key": "authorization",
+            "value": "Basic c3U6Z3c="
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"requests\": [\r\n        {\r\n            \"method\": \"post\",\r\n            \"uri\": \"/account/v1/accounts\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"initialAccountHolder\": {\r\n                            \"contactSubtype\": \"Company\",\r\n                            \"companyName\": \"Hexa Tester\",\r\n                            \"primaryAddress\": {\r\n                                \"addressLine1\": \"2850 S. Delaware St.\",\r\n                                \"city\": \"San Mateo\",\r\n                                \"postalCode\": \"94403\",\r\n                                \"state\": {\r\n                                    \"code\": \"CA\"\r\n                                }\r\n                            }\r\n                        },\r\n                        \"initialPrimaryLocation\": {\r\n                            \"addressLine1\": \"2850 S. Delaware St.\",\r\n                            \"city\": \"San Mateo\",\r\n                            \"postalCode\": \"94403\",\r\n                            \"state\": {\r\n                                \"code\": \"CA\"\r\n                            }\r\n                        },\r\n                        \"producerCodes\": [\r\n                            {\r\n                                \"id\": \"pc:6\"\r\n                            }\r\n                        ],\r\n                        \"organizationType\": {\r\n                            \"code\": \"llc\"\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false,\r\n            \"vars\": [\r\n                {\r\n                    \"name\": \"accountId\",\r\n                    \"path\": \"$.data.attributes.id\"\r\n                },\r\n                {\r\n                    \"name\": \"driverId\",\r\n                    \"path\": \"$.data.attributes.accountHolder.id\"\r\n                },\r\n                {\r\n                    \"name\": \"primaryLocationId\",\r\n                    \"path\": \"$.data.attributes.primaryLocation.id\"\r\n                }\r\n            ]\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/submissions\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"account\": {\r\n                            \"id\": \"${accountId}\"\r\n                        },\r\n                        \"baseState\": {\r\n                            \"code\": \"CA\"\r\n                        },\r\n                        \"jobEffectiveDate\": \"2025-07-16\",\r\n                        \"product\": {\r\n                            \"id\": \"HomeownersProduct\"\r\n                        },\r\n                        \"producerCode\": {\r\n                            \"id\": \"pc:6\"\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false,\r\n            \"vars\": [\r\n                {\r\n                    \"name\": \"jobId\",\r\n                    \"path\": \"$.data.attributes.id\"\r\n                }\r\n            ]\r\n        },\r\n        {\r\n            \"method\": \"PATCH\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"continuousInsurance\": true,\r\n                        \"coverableJurisdiction\": {\r\n                            \"code\": \"CA\",\r\n                            \"name\": \"California\"\r\n                        },\r\n                        \"insuranceRefused\": false,\r\n                        \"priorCarrier\": \"TEST\",\r\n                        \"priorPolicyExp\": \"2026-03-18T18:00:15.195Z\",\r\n                        \"priorPolicyNum\": \"10102324\"\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": true\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/coverages\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"clauseType\": \"coverage\",\r\n                        \"id\": \"HLLCovEPersonalLiability\",\r\n                        \"pattern\": {\r\n                            \"id\": \"HLLCovEPersonalLiability\"\r\n                        },\r\n                        \"terms\": {\r\n                            \"HLLCovEPersonalLiabilityLimit\": {\r\n                                \"choiceValue\": {\r\n                                    \"code\": \"250000usd\",\r\n                                    \"name\": \"250,000\"\r\n                                }\r\n                            },\r\n                            \"HLLCovEPersonalLiabilityPersonalInjury\": {\r\n                                \"booleanValue\": true\r\n                            }\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/coverages\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"clauseType\": \"coverage\",\r\n                        \"id\": \"HLLCovFMedPay\",\r\n                        \"pattern\": {\r\n                            \"displayName\": \"Coverage F - Medical Payments\",\r\n                            \"id\": \"HLLCovFMedPay\"\r\n                        },\r\n                        \"terms\": {\r\n                            \"HLLCovFMedPayLimit\": {\r\n                                \"choiceValue\": {\r\n                                    \"code\": \"10000usd\",\r\n                                    \"name\": \"10,000\"\r\n                                }\r\n                            }\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/coverages\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"clauseType\": \"coverage\",\r\n                        \"id\": \"HLLIdentityTheftProtection\",\r\n                        \"pattern\": {\r\n                            \"displayName\": \"Identity Theft Protection\",\r\n                            \"id\": \"HLLIdentityTheftProtection\"\r\n                        },\r\n                        \"terms\": {\r\n                            \"HLLIdentityTheftProtectionDeductible\": {\r\n                                \"choiceValue\": {\r\n                                    \"code\": \"500usd\",\r\n                                    \"name\": \"500\"\r\n                                }\r\n                            },\r\n                            \"HLLIdentityTheftProtectionLimit\": {\r\n                                \"choiceValue\": {\r\n                                    \"code\": \"15000usd\",\r\n                                    \"name\": \"15,000\"\r\n                                }\r\n                            }\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/coverages\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"clauseType\": \"coverage\",\r\n                        \"id\": \"HLLDamageToPropertyOfOthers\",\r\n                        \"pattern\": {\r\n                            \"displayName\": \"Damage to Property of Others\",\r\n                            \"id\": \"HLLDamageToPropertyOfOthers\"\r\n                        },\r\n                        \"terms\": {\r\n                            \"HLLDamageToPropertyOfOthersLimit\": {\r\n                                \"choiceValue\": {\r\n                                    \"code\": \"2500usd\",\r\n                                    \"name\": \"2,500\"\r\n                                }\r\n                            }\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/dwellings\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"accountLocation\": {\r\n                            \"id\": \"${primaryLocationId}\"\r\n                        },\r\n                        \"alarmType\": {\r\n                            \"code\": \"police_station\",\r\n                            \"name\": \"Police Station\"\r\n                        },\r\n                        \"constructionType\": {\r\n                            \"code\": \"masonry\",\r\n                            \"name\": \"Masonry\"\r\n                        },\r\n                        \"constructionYear\": 2025,\r\n                        \"coverableJurisdiction\": {\r\n                            \"code\": \"CA\",\r\n                            \"name\": \"California\"\r\n                        },\r\n                        \"coverageForm\": {\r\n                            \"code\": \"ho3\",\r\n                            \"name\": \"HO-3 - Special Form\"\r\n                        },\r\n                        \"deadbolts\": false,\r\n                        \"dwellingLocation\": {\r\n                            \"code\": \"in_city_limits\",\r\n                            \"name\": \"In City Limits\"\r\n                        },\r\n                        \"dwellingType\": {\r\n                            \"code\": \"dwelling\",\r\n                            \"name\": \"Dwelling\"\r\n                        },\r\n                        \"dwellingUsage\": {\r\n                            \"code\": \"primary\",\r\n                            \"name\": \"Primary\"\r\n                        },\r\n                        \"electricalType\": {\r\n                            \"code\": \"circuit_breaker\",\r\n                            \"name\": \"Circuit Breaker\"\r\n                        },\r\n                        \"fireAlarmType\": {\r\n                            \"code\": \"alarm_monitoring_center\",\r\n                            \"name\": \"Alarm - To Monitoring Center\"\r\n                        },\r\n                        \"floodHazard\": false,\r\n                        \"foundationType\": {\r\n                            \"code\": \"full_basement\",\r\n                            \"name\": \"Full Basement\"\r\n                        },\r\n                        \"garageType\": {\r\n                            \"code\": \"attached_2_car\",\r\n                            \"name\": \"Attached Garage - 2 Car\"\r\n                        },\r\n                        \"numberStories\": {\r\n                            \"code\": \"2_stories\",\r\n                            \"name\": \"2 Stories\"\r\n                        },\r\n                        \"occupancy\": {\r\n                            \"code\": \"occupied\",\r\n                            \"name\": \"Occupied\"\r\n                        },\r\n                        \"plumbingType\": {\r\n                            \"code\": \"pvc\",\r\n                            \"name\": \"PVC\"\r\n                        },\r\n                        \"roofType\": {\r\n                            \"code\": \"composite\",\r\n                            \"name\": \"Composite\"\r\n                        },\r\n                        \"smokeAlarmType\": {\r\n                            \"code\": \"all_floors\",\r\n                            \"name\": \"All Floors\"\r\n                        },\r\n                        \"squareFeet\": 1500,\r\n                        \"swimmingPool\": true,\r\n                        \"wiringType\": {\r\n                            \"code\": \"copper\",\r\n                            \"name\": \"Copper\"\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false,\r\n            \"vars\": [\r\n                {\r\n                    \"name\": \"dwellingId\",\r\n                    \"path\": \"$.data.attributes.id\"\r\n                }\r\n            ]\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/dwellings/${dwellingId}/coverages\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"clauseType\": \"coverage\",\r\n                        \"id\": \"HLLCovADwelling\",\r\n                        \"pattern\": {\r\n                            \"displayName\": \"Coverage A - Dwelling\",\r\n                            \"id\": \"HLLCovADwelling\"\r\n                        },\r\n                        \"terms\": {\r\n                            \"HLLCovADwellingCauseOfLoss\": {\r\n                                \"typekeyValue\": {\r\n                                    \"code\": \"SpecialPerils\",\r\n                                    \"name\": \"Special Perils\"\r\n                                }\r\n                            },\r\n                            \"HLLCovADwellingCoinsurance\": {\r\n                                \"choiceValue\": {\r\n                                    \"code\": \"100Percent\",\r\n                                    \"name\": \"100%\"\r\n                                }\r\n                            },\r\n                            \"HLLCovADwellingLimit\": {\r\n                                \"directValue\": \"300000.00\"\r\n                            },\r\n                            \"HLLCovADwellingValuation\": {\r\n                                \"typekeyValue\": {\r\n                                    \"code\": \"ActualCashValue\",\r\n                                    \"name\": \"Actual cash value\"\r\n                                }\r\n                            }\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/dwellings/${dwellingId}/coverages\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"clauseType\": \"coverage\",\r\n                        \"id\": \"HLLCovBOtherStructures\",\r\n                        \"pattern\": {\r\n                            \"displayName\": \"Coverage B - Other Structures\",\r\n                            \"id\": \"HLLCovBOtherStructures\"\r\n                        },\r\n                        \"terms\": {\r\n                            \"HLLCovBOtherStructuresLimit\": {\r\n                                \"directValue\": \"60000.00\"\r\n                            },\r\n                            \"HLLCovBOtherStructuresLimitPercent\": {\r\n                                \"choiceValue\": {\r\n                                    \"code\": \"20Percent\",\r\n                                    \"name\": \"20%\"\r\n                                }\r\n                            }\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false\r\n        },\r\n        {\r\n            \"method\": \"POST\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/lines/HomeownersLine/dwellings/${dwellingId}/coverages\",\r\n            \"body\": {\r\n                \"data\": {\r\n                    \"attributes\": {\r\n                        \"clauseType\": \"coverage\",\r\n                        \"id\": \"HLLCovCPersonalProp\",\r\n                        \"pattern\": {\r\n                            \"displayName\": \"Coverage C - Personal Property\",\r\n                            \"id\": \"HLLCovCPersonalProp\"\r\n                        },\r\n                        \"terms\": {\r\n                            \"HLLCovCPersonalPropCauseOfLoss\": {\r\n                                \"typekeyValue\": {\r\n                                    \"code\": \"ComprehensivePerils\",\r\n                                    \"name\": \"Comprehensive Perils\"\r\n                                }\r\n                            },\r\n                            \"HLLCovCPersonalPropLimit\": {\r\n                                \"directValue\": \"150000.00\"\r\n                            },\r\n                            \"HLLCovCPersonalPropLimitPercent\": {\r\n                                \"typekeyValue\": {\r\n                                    \"code\": \"50Percent\",\r\n                                    \"name\": \"50%\"\r\n                                }\r\n                            },\r\n                            \"HLLCovCPersonalPropPropertyAtOtherResidence\": {\r\n                                \"typekeyValue\": {\r\n                                    \"code\": \"20PercentCovC\",\r\n                                    \"name\": \"20% of Coverage C\"\r\n                                }\r\n                            },\r\n                            \"HLLCovCPersonalPropSelfStorageUnits\": {\r\n                                \"typekeyValue\": {\r\n                                    \"code\": \"10PercentCovC\",\r\n                                    \"name\": \"10% of Coverage C\"\r\n                                }\r\n                            },\r\n                            \"HLLCovCPersonalPropValuationMethod\": {\r\n                                \"typekeyValue\": {\r\n                                    \"code\": \"ReplacementCost\",\r\n                                    \"name\": \"Replacement Cost\"\r\n                                }\r\n                            }\r\n                        }\r\n                    }\r\n                }\r\n            },\r\n            \"includeResponse\": false\r\n        },\r\n        {\r\n            \"method\": \"post\",\r\n            \"uri\": \"/job/v1/jobs/${jobId}/quote\"\r\n        }\r\n    ],\r\n    \"selections\": [\r\n        {\r\n            \"uri\": \"/account/v1/accounts/${accountId}\"\r\n        },\r\n        {\r\n            \"uri\": \"/job/v1/jobs/${jobId}\"\r\n        }\r\n    ]\r\n}"
+        },
+        "url": {
+          "raw": "https://pc-sandbox-gwcpdev.hexaware.zeta1-andromeda.guidewire.net/rest/composite/v1/composite",
+          "protocol": "https",
+          "host": [
+            "pc-sandbox-gwcpdev",
+            "hexaware",
+            "zeta1-andromeda",
+            "guidewire",
+            "net"
+          ],
+          "path": [
+            "rest",
+            "composite",
+            "v1",
+            "composite"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "bind and issue",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "accept",
+            "value": "application/json"
+          },
+          {
+            "key": "authorization",
+            "value": "Basic c3U6Z3c="
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "https://pc-sandbox-gwcpdev.hexaware.zeta1-andromeda.guidewire.net/rest/job/v1/jobs/{{jobId}}/bind-and-issue",
+          "protocol": "https",
+          "host": [
+            "pc-sandbox-gwcpdev",
+            "hexaware",
+            "zeta1-andromeda",
+            "guidewire",
+            "net"
+          ],
+          "path": [
+            "rest",
+            "job",
+            "v1",
+            "jobs",
+            "{{jobId}}",
+            "bind-and-issue"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "jobNumber",
+      "value": ""
+    }
+  ]
 }
-
-
-

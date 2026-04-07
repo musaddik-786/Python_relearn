@@ -541,6 +541,44 @@ def get_engine():
     )
 
 
+here atleast one row is inserted but even that is not visible in the domaina table 
+Testing Licensing & Sanction Checker MCP...
+HTTP Status: 200
+{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+        "status": true,
+        "result": {
+            "status": true,
+            "rows_inserted": 1,
+            "rows_failed": 5,
+            "errors": [
+                {
+                    "row": 1,
+                    "error": "Table mapping missing for DomainB"
+                },
+                {
+                    "row": 2,
+                    "error": "Table mapping missing for DomainC"
+                },
+                {
+                    "row": 3,
+                    "error": "Table mapping missing for DomainD"
+                },
+                {
+                    "row": 4,
+                    "error": "Table mapping missing for DomainE"
+                },
+                {
+                    "row": 5,
+                    "error": "Table mapping missing for DomainF"
+                }
+            ]
+        }
+    }
+}
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ 
 
 
 

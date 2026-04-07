@@ -1,3 +1,4 @@
+from models import AgentEligibility
 from sqlmodel import Session
 from db import get_engine
 from mapper import TABLE_MODEL_MAP
@@ -6,25 +7,22 @@ from datetime import datetime
 
 async def database_filler(result:dict):
 
-    # recursively find Data_Filler anywhere
     def find_data_filler(obj):
 
+        # search in dictionary
         if isinstance(obj, dict):
 
-            for key,value in obj.items():
+            if "Data_Filler" in obj:
+                return obj["Data_Filler"]
 
-                normalized_key = key.lower().replace(" ","_")
-
-                if normalized_key == "data_filler":
-
-                    return value
+            for value in obj.values():
 
                 found = find_data_filler(value)
 
                 if found is not None:
-
                     return found
 
+        # search in list
         elif isinstance(obj, list):
 
             for item in obj:
@@ -32,7 +30,6 @@ async def database_filler(result:dict):
                 found = find_data_filler(item)
 
                 if found is not None:
-
                     return found
 
         return None
@@ -40,12 +37,11 @@ async def database_filler(result:dict):
 
     data = find_data_filler(result)
 
+    # FIX: must check None not empty
     if data is None:
-
         raise Exception("Data_Filler missing")
 
     if not isinstance(data,list):
-
         raise Exception("Data_Filler must be list")
 
 
@@ -53,55 +49,24 @@ async def database_filler(result:dict):
 
     for index,item in enumerate(data):
 
-        if not isinstance(item,dict):
-
-            raise Exception(f"Row {index} must be object")
-
-
-        # find table key dynamically
-        table_key=None
-
-        for key in item.keys():
-
-            normalized_key=key.lower().replace(" ","_")
-
-            if normalized_key=="table_name":
-
-                table_key=key
-                break
-
-
-        if not table_key:
-
+        if "Table_name" not in item:
             raise Exception(f"Row {index} missing Table_name")
 
-
-        table=item[table_key].lower()
-
+        table=item["Table_name"]
 
         row=item.copy()
 
-        row.pop(table_key)
-
-
-        # normalize column names
-        normalized_row={}
-
-        for k,v in row.items():
-
-            normalized_row[k.lower()]=v
-
+        row.pop("Table_name")
 
         processed.append({
 
             "table":table,
 
-            "data":normalized_row,
+            "data":row,
 
             "row_number":index
 
         })
-
 
     return processed
 
@@ -115,7 +80,6 @@ def process_database(rows:list):
 
     errors=[]
 
-
     with Session(engine) as session:
 
         for row in rows:
@@ -128,14 +92,11 @@ def process_database(rows:list):
 
                 row_number=row["row_number"]
 
-
                 if table not in TABLE_MODEL_MAP:
 
                     raise Exception(f"Table mapping missing for {table}")
 
-
                 model=TABLE_MODEL_MAP[table]
-
 
                 filtered_data={
 
@@ -145,31 +106,29 @@ def process_database(rows:list):
 
                 }
 
+                for field in [
 
-                # convert datetime fields automatically
-                for field,value in filtered_data.items():
+                    "approval_date_time",
 
-                    if isinstance(value,str):
+                    "eligibility_check_date_time"
 
-                        try:
+                ]:
+
+                    if field in filtered_data:
+
+                        if isinstance(filtered_data[field],str):
 
                             filtered_data[field]=datetime.fromisoformat(
 
-                                value.replace(" ","T")
+                                filtered_data[field].replace(" ","T")
 
                             )
-
-                        except:
-
-                            pass
-
 
                 db_row=model(**filtered_data)
 
                 session.add(db_row)
 
                 inserted+=1
-
 
             except Exception as e:
 
@@ -183,9 +142,7 @@ def process_database(rows:list):
 
                 })
 
-
         session.commit()
-
 
     return {
 

@@ -1,172 +1,200 @@
-
-
-from models import AgentEligibility
-
 from sqlmodel import Session
-
 from db import get_engine
-
 from mapper import TABLE_MODEL_MAP
-
 from datetime import datetime
 
 
 async def database_filler(result:dict):
 
-   def find_data_filler(obj):
+    # recursively find Data_Filler anywhere
+    def find_data_filler(obj):
 
-       if isinstance(obj, dict):
+        if isinstance(obj, dict):
 
-           if "Data_Filler" in obj:
+            for key,value in obj.items():
 
-               return obj["Data_Filler"]
+                normalized_key = key.lower().replace(" ","_")
 
-           for value in obj.values():
+                if normalized_key == "data_filler":
 
-               found = find_data_filler(value)
+                    return value
 
-               if found:
+                found = find_data_filler(value)
 
-                   return found
+                if found is not None:
 
-       return None
+                    return found
+
+        elif isinstance(obj, list):
+
+            for item in obj:
+
+                found = find_data_filler(item)
+
+                if found is not None:
+
+                    return found
+
+        return None
 
 
-   data = find_data_filler(result)
+    data = find_data_filler(result)
 
-   if not data:
+    if data is None:
 
-       raise Exception("Data_Filler missing")
+        raise Exception("Data_Filler missing")
 
-   if not isinstance(data,list):
+    if not isinstance(data,list):
 
-       raise Exception("Data_Filler must be list")
+        raise Exception("Data_Filler must be list")
 
-   processed=[]
 
-   for index,item in enumerate(data):
+    processed=[]
 
-       if "Table_name" not in item:
+    for index,item in enumerate(data):
 
-           raise Exception(f"Row {index} missing Table_name")
+        if not isinstance(item,dict):
 
-       table=item["Table_name"]
+            raise Exception(f"Row {index} must be object")
 
-       row=item.copy()
 
-       row.pop("Table_name")
+        # find table key dynamically
+        table_key=None
 
-       processed.append({
+        for key in item.keys():
 
-           "table":table,
+            normalized_key=key.lower().replace(" ","_")
 
-           "data":row,
+            if normalized_key=="table_name":
 
-           "row_number":index
+                table_key=key
+                break
 
-       })
 
-   return processed
+        if not table_key:
+
+            raise Exception(f"Row {index} missing Table_name")
+
+
+        table=item[table_key].lower()
+
+
+        row=item.copy()
+
+        row.pop(table_key)
+
+
+        # normalize column names
+        normalized_row={}
+
+        for k,v in row.items():
+
+            normalized_row[k.lower()]=v
+
+
+        processed.append({
+
+            "table":table,
+
+            "data":normalized_row,
+
+            "row_number":index
+
+        })
+
+
+    return processed
+
 
 
 def process_database(rows:list):
 
-   
+    engine=get_engine()
 
-   engine=get_engine()
+    inserted=0
 
-   inserted=0
-
-   errors=[]
-
-   with Session(engine) as session:
-
-       for row in rows:
-
-           try:
-
-               table=row["table"]
-
-               data=row["data"]
-
-               row_number=row["row_number"]
-
-               if table not in TABLE_MODEL_MAP:
-
-                   raise Exception(f"Table mapping missing for {table}")
-
-               model=TABLE_MODEL_MAP[table]
-
-               filtered_data={
-
-                   k:v for k,v in data.items()
-
-                   if k in model.model_fields
-
-               }
-
-               for field in [
-
-                   "approval_date_time",
-
-                   "eligibility_check_date_time"
-
-               ]:
-
-                   if field in filtered_data:
-
-                       if isinstance(filtered_data[field],str):
-
-                           filtered_data[field]=datetime.fromisoformat(
-
-                               filtered_data[field].replace(" ","T")
-
-                           )
-
-               db_row=model(**filtered_data)
-
-               session.add(db_row)
-
-               inserted+=1
-
-           except Exception as e:
-
-               session.rollback()
-
-               errors.append({
-
-                   "row":row_number,
-
-                   "error":str(e)
-
-               })
-
-       session.commit()
-
-   return {
-
-       "status":True,
-
-       "rows_inserted":inserted,
-
-       "rows_failed":len(errors),
-
-       "errors":errors
+    errors=[]
 
 
+    with Session(engine) as session:
 
-}
+        for row in rows:
+
+            try:
+
+                table=row["table"]
+
+                data=row["data"]
+
+                row_number=row["row_number"]
 
 
+                if table not in TABLE_MODEL_MAP:
+
+                    raise Exception(f"Table mapping missing for {table}")
 
 
-Testing Licensing & Sanction Checker MCP...
-HTTP Status: 200
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": false,
-        "error": "Data_Filler missing"
+                model=TABLE_MODEL_MAP[table]
+
+
+                filtered_data={
+
+                    k:v for k,v in data.items()
+
+                    if k in model.model_fields
+
+                }
+
+
+                # convert datetime fields automatically
+                for field,value in filtered_data.items():
+
+                    if isinstance(value,str):
+
+                        try:
+
+                            filtered_data[field]=datetime.fromisoformat(
+
+                                value.replace(" ","T")
+
+                            )
+
+                        except:
+
+                            pass
+
+
+                db_row=model(**filtered_data)
+
+                session.add(db_row)
+
+                inserted+=1
+
+
+            except Exception as e:
+
+                session.rollback()
+
+                errors.append({
+
+                    "row":row_number,
+
+                    "error":str(e)
+
+                })
+
+
+        session.commit()
+
+
+    return {
+
+        "status":True,
+
+        "rows_inserted":inserted,
+
+        "rows_failed":len(errors),
+
+        "errors":errors
+
     }
-}

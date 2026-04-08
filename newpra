@@ -1,0 +1,787 @@
+  "documents": [
+    {
+      "docType": "4ACORDFORM",
+      "boundingRegions": [
+        {
+          "pageNumber": 1,
+          "polygon": [
+            0,
+            0,
+            8.5,
+            0,
+            8.5,
+            11,
+            0,
+            11
+          ]
+        },
+        {
+          "pageNumber": 2,
+          "polygon": [
+            0,
+            0,
+            8.5,
+            0,
+            8.5,
+            11,
+            0,
+            11
+          ]
+        },
+        {
+          "pageNumber": 3,
+          "polygon": [
+            0,
+            0,
+            8.5,
+            0,
+            8.5,
+            11,
+            0,
+            11
+          ]
+        },
+        {
+          "pageNumber": 4,
+          "polygon": [
+            0,
+            0,
+            8.5,
+            0,
+            8.5,
+            11,
+            0,
+            11
+          ]
+        }
+      ],
+      "fields": {
+        "AGENCY_CUSTOMER_ID": {
+          "type": "string",
+          "valueString": "542198",
+          "content": "542198",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                1.3493,
+                2.6108,
+                1.7376,
+                2.6103,
+                1.7377,
+                2.7232,
+                1.3494,
+                2.7237
+              ]
+            }
+          ],
+          "confidence": 0.979,
+          "spans": [
+            {
+              "offset": 417,
+              "length": 6
+            }
+          ]
+        },
+        "AGENCY": {
+          "type": "string",
+          "valueString": "Prime Brokers Ltd.",
+          "content": "Prime Brokers Ltd.",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.3099,
+                1.1065,
+                1.2397,
+                1.1074,
+                1.2396,
+                1.2265,
+                0.3098,
+                1.2256
+              ]
+            }
+          ],
+          "confidence": 0.946,
+          "spans": [
+            {
+              "offset": 97,
+              "length": 18
+            }
+          ]
+        },
+        "CARRIER": {
+          "type": "string",
+          "valueString": "Phoenix Insurers Ltd.",
+          "content": "Phoenix Insurers Ltd.",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                4.3047,
+                0.9413,
+                5.3679,
+                0.9427,
+                5.3678,
+                1.0604,
+                4.3046,
+                1.059
+              ]
+            }
+          ],
+          "confidence": 0.929,
+          "spans": [
+            {
+              "offset": 134,
+              "length": 21
+            }
+          ]
+        },
+        "emailaddress": {
+          "type": "string",
+          "valueString": "greywilliam@primebrokers.com",
+          "content": "greywilliam@primebrokers.com",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.801,
+                2.2788,
+                2.374,
+                2.2751,
+                2.3743,
+                2.3979,
+                0.8013,
+                2.4015
+              ]
+            }
+          ],
+          "confidence": 0.975,
+          "spans": [
+            {
+              "offset": 353,
+              "length": 28
+            }
+          ]
+        },
+        "phone": {
+          "type": "string",
+          "valueString": "+1 202 406 789",
+          "content": "+1 202 406 789",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.9474,
+                1.9372,
+                1.7378,
+                1.9385,
+                1.7376,
+                2.0567,
+                0.9472,
+                2.0554
+              ]
+            }
+          ],
+          "confidence": 0.824,
+          "spans": [
+            {
+              "offset": 307,
+              "length": 14
+            }
+          ]
+        },
+        "PROGRAM CODE": {
+          "type": "string",
+          "valueString": "P1",
+          "content": "P1",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                7.3559,
+                1.2808,
+                7.4928,
+                1.2795,
+                7.4938,
+                1.3803,
+                7.3569,
+                1.3817
+              ]
+            }
+          ],
+          "confidence": 0.962,
+          "spans": [
+            {
+              "offset": 210,
+              "length": 2
+            }
+          ]
+        },
+        "COMPANY POLICY OR PROGRAM NAME": {
+          "type": "string",
+          "valueString": "Program 1",
+          "content": "Program 1",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                4.3066,
+                1.2773,
+                4.8311,
+                1.2767,
+                4.8312,
+                1.3996,
+                4.3067,
+                1.4002
+              ]
+            }
+          ],
+          "confidence": 0.974,
+          "spans": [
+            {
+              "offset": 200,
+              "length": 9
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-QUOTE": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                5.2506,
+                2.0815,
+                5.4432,
+                2.0804,
+                5.4442,
+                2.2487,
+                5.2516,
+                2.2498
+              ]
+            }
+          ],
+          "confidence": 0.677,
+          "spans": [
+            {
+              "offset": 424,
+              "length": 12
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-BOUND": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                5.2499,
+                2.2501,
+                5.4439,
+                2.2479,
+                5.4458,
+                2.4135,
+                5.2518,
+                2.4158
+              ]
+            }
+          ],
+          "confidence": 0.683,
+          "spans": [
+            {
+              "offset": 3864,
+              "length": 12
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-CHANGE": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                5.2474,
+                2.4171,
+                5.4453,
+                2.4142,
+                5.4477,
+                2.5804,
+                5.2498,
+                2.5833
+              ]
+            }
+          ],
+          "confidence": 0.684,
+          "spans": [
+            {
+              "offset": 524,
+              "length": 12
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-CANCEL": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                5.2491,
+                2.5798,
+                5.4485,
+                2.5813,
+                5.4472,
+                2.7507,
+                5.2478,
+                2.7492
+              ]
+            }
+          ],
+          "confidence": 0.685,
+          "spans": [
+            {
+              "offset": 570,
+              "length": 12
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-ISSUE POLICY": {
+          "type": "selectionMark",
+          "valueSelectionMark": "selected",
+          "content": ":selected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                6.3429,
+                2.0799,
+                6.5547,
+                2.0796,
+                6.555,
+                2.2558,
+                6.3432,
+                2.2562
+              ]
+            }
+          ],
+          "confidence": 0.961,
+          "spans": [
+            {
+              "offset": 443,
+              "length": 10
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-RENEW": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                7.3893,
+                2.0795,
+                7.6008,
+                2.0776,
+                7.6025,
+                2.2591,
+                7.391,
+                2.261
+              ]
+            }
+          ],
+          "confidence": 0.754,
+          "spans": [
+            {
+              "offset": 467,
+              "length": 12
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-DATE": {
+          "type": "string",
+          "valueString": "07/15/2025",
+          "content": "07/15/2025",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                6.0588,
+                2.6102,
+                6.6351,
+                2.6095,
+                6.6352,
+                2.7229,
+                6.0589,
+                2.7236
+              ]
+            }
+          ],
+          "confidence": 0.98,
+          "spans": [
+            {
+              "offset": 590,
+              "length": 10
+            }
+          ]
+        },
+        "STATUS OF TRANSACTION-TIME": {
+          "type": "string",
+          "valueString": "6:15",
+          "content": "6:15",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                7.0849,
+                2.6156,
+                7.3158,
+                2.614,
+                7.3165,
+                2.7183,
+                7.0856,
+                2.7199
+              ]
+            }
+          ],
+          "confidence": 0.981,
+          "spans": [
+            {
+              "offset": 601,
+              "length": 4
+            }
+          ]
+        },
+        "AM": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                7.5919,
+                2.408,
+                7.805,
+                2.4081,
+                7.8049,
+                2.5825,
+                7.5918,
+                2.5824
+              ]
+            }
+          ],
+          "confidence": 0.825,
+          "spans": [
+            {
+              "offset": 554,
+              "length": 12
+            }
+          ]
+        },
+        "PM": {
+          "type": "selectionMark",
+          "valueSelectionMark": "selected",
+          "content": ":selected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                7.6034,
+                2.5837,
+                7.7954,
+                2.5846,
+                7.7947,
+                2.7428,
+                7.6027,
+                2.7419
+              ]
+            }
+          ],
+          "confidence": 0.98,
+          "spans": [
+            {
+              "offset": 606,
+              "length": 10
+            }
+          ]
+        },
+        "CONTACT NAME": {
+          "type": "string",
+          "valueString": "William Grey",
+          "content": "William Grey",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.745,
+                1.7704,
+                1.4015,
+                1.7779,
+                1.4001,
+                1.8988,
+                0.7436,
+                1.8913
+              ]
+            }
+          ],
+          "confidence": 0.962,
+          "spans": [
+            {
+              "offset": 241,
+              "length": 12
+            }
+          ]
+        },
+        "LOB - BOILER AND MACHINERY": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.2538,
+                3.0829,
+                0.445,
+                3.0811,
+                0.4466,
+                3.2481,
+                0.2554,
+                3.2499
+              ]
+            }
+          ],
+          "confidence": 0.757,
+          "spans": [
+            {
+              "offset": 689,
+              "length": 12
+            }
+          ]
+        },
+        "LOB - BUSINESS AUTO": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.2504,
+                3.2528,
+                0.449,
+                3.2501,
+                0.4511,
+                3.4089,
+                0.2525,
+                3.4116
+              ]
+            }
+          ],
+          "confidence": 0.754,
+          "spans": [
+            {
+              "offset": 777,
+              "length": 12
+            }
+          ]
+        },
+        "LOB - BUSINESS OWNERS": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.2517,
+                3.4178,
+                0.4494,
+                3.4155,
+                0.4513,
+                3.5759,
+                0.2536,
+                3.5782
+              ]
+            }
+          ],
+          "confidence": 0.699,
+          "spans": [
+            {
+              "offset": 843,
+              "length": 12
+            }
+          ]
+        },
+        "LOB - COMMERCIAL GENERAL LIABILITY": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.2519,
+                3.5843,
+                0.45,
+                3.5838,
+                0.4504,
+                3.7437,
+                0.2523,
+                3.7442
+              ]
+            }
+          ],
+          "confidence": 0.702,
+          "spans": [
+            {
+              "offset": 910,
+              "length": 12
+            }
+          ]
+        },
+        "LOB - COMMERCIAL INLAND MARINE": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.252,
+                3.7528,
+                0.4471,
+                3.7529,
+                0.4471,
+                3.9074,
+                0.252,
+                3.9074
+              ]
+            }
+          ],
+          "confidence": 0.756,
+          "spans": [
+            {
+              "offset": 988,
+              "length": 12
+            }
+          ]
+        },
+        "LOB - COMMERCIAL PROPERTY": {
+          "type": "selectionMark",
+          "valueSelectionMark": "selected",
+          "content": ":selected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.2569,
+                3.9213,
+                0.4314,
+                3.9208,
+                0.4319,
+                4.0773,
+                0.2574,
+                4.0779
+              ]
+            }
+          ],
+          "confidence": 0.974,
+          "spans": [
+            {
+              "offset": 1059,
+              "length": 10
+            }
+          ]
+        },
+        "LOB - CRIME": {
+          "type": "selectionMark",
+          "valueSelectionMark": "unselected",
+          "content": ":unselected:",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                0.2383,
+                4.0918,
+                0.4519,
+                4.0886,
+                0.4543,
+                4.25,
+                0.2407,
+                4.2532
+              ]
+            }
+          ],
+          "confidence": 0.822,
+          "spans": [
+            {
+              "offset": 1118,
+              "length": 12
+            }
+          ]
+        },
+        "BOILER AND MACHINERY PREMIUM": {
+          "type": "string",
+          "valueString": "$",
+          "content": "$",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                2.0908,
+                3.1261,
+                2.1471,
+                3.1255,
+                2.1479,
+                3.203,
+                2.0916,
+                3.2036
+              ]
+            }
+          ],
+          "confidence": 0.806,
+          "spans": [
+            {
+              "offset": 721,
+              "length": 1
+            }
+          ]
+        },
+        "BUSINESS AUTO PREMIUM": {
+          "type": "string",
+          "valueString": "$",
+          "content": "$",
+          "boundingRegions": [
+            {
+              "pageNumber": 1,
+              "polygon": [
+                2.092,
+                3.2936,
+                2.1444,
+                3.2928,
+                2.1456,
+                3.3704,
+                2.0932,
+                3.3712
+              ]
+            }
+          ],
+          "confidence": 0.516,
+          "spans": [
+            {
+              "offset": 804,
+              "length": 1
+            }
+          ]
+        },

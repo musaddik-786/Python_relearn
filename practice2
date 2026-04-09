@@ -1,3 +1,6 @@
+image_processor.py
+
+
 import os
 import json
 import uuid
@@ -197,10 +200,25 @@ async def analyze_file_async(bloburl: str) -> dict:
     target_blob_name = f"{ref_part}_attachment_{file_part}_extraction_{timestamp}.json"
     
 
-    try:
+    # try:
 
-    except Exception as e:    
-        
+    # except Exception as e:    
+
+    # try:
+
+    #     # -------------------------
+
+    #     # Add Document Type
+
+    #     # -------------------------
+
+    #     final_output["Document_Type"] = "Acord"
+
+    # except Exception as e:
+
+    #     return {"status": False, "error": f"Failed to add document type: {e}"}
+ 
+
 
     # ------------------------
     # Upload the final_output.json to Azure Blob Storage with the new name
@@ -252,582 +270,405 @@ async def process_input_folder_on_startup() -> None:
         print(f"[startup] process_input_folder_on_startup error: {e}")
         return
 
-this is my current final_output.json
-{
-  "Broker": {
-    "Agency Customer Id": "542198, confidence - 0.979",
-    "Agency": "Prime Brokers Ltd., confidence - 0.946",
-    "Contact Name": "William Grey, confidence - 0.962",
-    "Email Address": "greywilliam@primebrokers.com, confidence - 0.975",
-    "Phone": "+1 202 406 789, confidence - 0.824",
-    "Producer's Signature": "William Grey, confidence - 0.69",
-    "Producer's Name Please Print": "William Grey, confidence - 0.453",
-    "total_confidence": 0.9106666666666666
-  },
-  "Carrier": {
-    "Carrier": "Phoenix Insurers Ltd., confidence - 0.929",
-    "total_confidence": 0.929
-  },
-  "Policy": {
-    "Program Code": "P1, confidence - 0.962",
-    "Company Policy Or Program Name": "Program 1, confidence - 0.974",
-    "Proposed Effective Date": "07/15/2025, confidence - 0.969",
-    "Proposed Expiration Date": "07/15/2028, confidence - 0.973",
-    "Billing Plan - Direct": ":unselected:, confidence - 0.676",
-    "Billing Plan - Agency": ":selected:, confidence - 0.961",
-    "Deposit": "$, confidence - 0.675",
-    "Minimum Premium": "$ $,\nconfidence - 0.39",
-    "total_confidence": 0.773
-  },
-  "Transaction Status": {
-    "Status Of Transaction-Quote": ":unselected:, confidence - 0.677",
-    "Status Of Transaction-Bound": ":unselected:, confidence - 0.683",
-    "Status Of Transaction-Change": ":unselected:, confidence - 0.684",
-    "Status Of Transaction-Cancel": ":unselected:, confidence - 0.685",
-    "Status Of Transaction-Issue Policy": ":selected:, confidence - 0.961",
-    "Status Of Transaction-Renew": ":unselected:, confidence - 0.754",
-    "Status Of Transaction-Date": "07/15/2025, confidence - 0.98",
-    "Status Of Transaction-Time": "6:15 PM, confidence - 0.981",
-    "total_confidence": 0.8006249999999999
-  },
-  "Line of Business": {
-    "Boiler And Machinery": ":unselected:, confidence - 0.757",
-    "Boiler And Machinery Premium": "$, confidence - 0.806",
-    "Business Auto": ":unselected:, confidence - 0.754",
-    "Business Auto Premium": "$, confidence - 0.516",
-    "Business Owners": ":unselected:, confidence - 0.699",
-    "Business Owners Premium": "$, confidence - 0.51",
-    "Commercial General Liability": ":unselected:, confidence - 0.702",
-    "Commercial General Liability Premium": "$, confidence - 0.617",
-    "Commercial Inland Marine": ":unselected:, confidence - 0.756",
-    "Commercial Inland Marine Premium": "$, confidence - 0.593",
-    "Commercial Property": ":selected:, confidence - 0.974",
-    "Commercial Property Premium": "$, confidence - 0.488",
-    "Crime": ":unselected:, confidence - 0.822",
-    "Crime Premium": "$, confidence - 0.496",
-    "Fiduciary Liability": ":unselected:, confidence - 0.508",
-    "Garage And Dealers": ":unselected:, confidence - 0.633",
-    "Liquor Liability": ":unselected:, confidence - 0.525",
-    "Motor Carrier": ":unselected:, confidence - 0.445",
-    "Umbrella": ":unselected:, confidence - 0.491",
-    "Other Lob 2 Premium": "$ $,\nconfidence - 0.362",
-    "Other Lob 3 Premium": "$ $,\nconfidence - 0.328",
-    "Other Lob 5 Premium": "$, confidence - 0.15",
-    "total_confidence": 0.5908095238095238
-  },
-  "Attachments": {
-    "Attachment - Accounts Receivable/Valuable Papers": ":selected:, confidence - 0.978",
-    "Attchment - Additional Interest Schedule": ":unselected:, confidence - 0.884",
-    "Attachment - Additional Premises Information Schedule": ":unselected:, confidence - 0.857",
-    "Attachment - Apartment Building Supplement": ":selected:, confidence - 0.98",
-    "Attachment - Condo Assn Bylaws": ":unselected:, confidence - 0.884",
-    "Attachment - Contractors Supplement": ":selected:, confidence - 0.98",
-    "Attachment - Coverages Schedule": ":unselected:, confidence - 0.857",
-    "Attachment - Dealers Section": ":unselected:, confidence - 0.758",
-    "Attachment - Driver Information Schedule": ":unselected:, confidence - 0.758",
-    "Attachment - Electronic Data Processing Section": ":unselected:, confidence - 0.826",
-    "Attachment - Glass And Sign Section": ":unselected:, confidence - 0.673",
-    "Attachment - Hotel/Motel Supplement": ":unselected:, confidence - 0.685",
-    "Attachment - Installation/Builders Risk Section": ":selected:, confidence - 0.98",
-    "Attachment - International Liability Eposure Supplement": ":unselected:, confidence - 0.685",
-    "Attachment - International Property Exposure Supplement": ":unselected:, confidence - 0.673",
-    "Attachment - Loss Summary": ":unselected:, confidence - 0.673",
-    "Attachment - Open Cargo Section": ":unselected:, confidence - 0.673",
-    "Attachment - Premium Payment Supplement": ":unselected:, confidence - 0.672",
-    "Attachment - Professional Liability Supplement": ":unselected:, confidence - 0.673",
-    "Attachment - Restraunt/Tavern Supplement": ":unselected:, confidence - 0.672",
-    "Attachment - Statement/Schedule Of Values": ":unselected:, confidence - 0.486",
-    "Attachment - State Supplement": ":unselected:, confidence - 0.529",
-    "Attachment - Vacant Building Supplement": ":unselected:, confidence - 0.51",
-    "Attachment - Vehicle Schedule": ":unselected:, confidence - 0.486",
-    "total_confidence": 0.7430000000000002
-  },
-  "Insured": {
-    "Name And Mailing Address": "High Tech Solution, 456 Elm St, Suite 200, Los Angeles, CA 90001, confidence - 0.915",
-    "Individual": ":unselected:, confidence - 0.852",
-    "Joint Venture": ":unselected:, confidence - 0.602",
-    "LLC": ":unselected:, confidence - 0.684",
-    "LLC 2": ":unselected:, confidence - 0.616",
-    "Not For Profit Org": ":unselected:, confidence - 0.684",
-    "Partnership": ":unselected:, confidence - 0.684",
-    "Partnership 2": ":unselected:, confidence - 0.582",
-    "Subchapter S Corporation": ":unselected:, confidence - 0.685",
-    "Trust": ":unselected:, confidence - 0.694",
-    "Other Corporation": ":unselected:, confidence - 0.334",
-    "Corporation": ":selected:, confidence - 0.976",
-    "total_confidence": 0.7007999999999999
-  },
-  "Loss History": {
-    "Loss History Check If None": ":selected:, confidence - 0.806",
-    "Applicant's Initials": "BH, confidence - 0.98",
-    "total_confidence": 0.806
-  },
-  "Contacts": {
-    "Primary Contact": {
-      "Contact Type": "Primary, confidence - 0.983",
-      "Contact Name": "Michael Hill, confidence - 0.969",
-      "Primary Email Address": "hillmichael@bhway.com, confidence - 0.948",
-      "Primary Phone": "+1 987612342, confidence - 0.848",
-      "Primary Phone Home": ":unselected:, confidence - 0.97",
-      "Primary Phone Bus": ":unselected:, confidence - 0.962",
-      "Primary Phone Cell": ":selected:, confidence - 0.657",
-      "Secondary Phone Home": ":unselected:, confidence - 0.956",
-      "Secondary Phone Bus": ":unselected:, confidence - 0.961",
-      "Secondary Phone Cell": ":unselected:, confidence - 0.944"
-    },
-    "Secondary Contact": {
-      "Contact Type": "Secondary, confidence - 0.979",
-      "Contact Name": "Bill Deeney, confidence - 0.963",
-      "Primary Email Address": "deeneybill@bhway.com, confidence - 0.973",
-      "Primary Phone Home": ":unselected:, confidence - 0.95",
-      "Primary Phone Bus": ":unselected:, confidence - 0.954",
-      "Primary Phone Cell": ":unselected:, confidence - 0.942",
-      "Secondary Phone Home": ":unselected:, confidence - 0.931",
-      "Secondary Phone Bus": ":unselected:, confidence - 0.961",
-      "Secondary Phone Cell": ":unselected:, confidence - 0.961"
-    }
-  },
-  "Premises Information": {
-    "Premises 1": {
-      "Street": "123 Penny Lane, confidence - 0.938",
-      "City": "Springfield, confidence - 0.981",
-      "State": "Illinois, confidence - 0.82",
-      "Zip": "ZIP:62629, confidence - 0.391",
-      "City Limits Inside": ":selected:, confidence - 0.961",
-      "City Limits Outside": ":unselected:, confidence - 0.638",
-      "City Limits Other": ":unselected:, confidence - 0.34",
-      "Interest Owner": ":selected:, confidence - 0.973",
-      "Interest Tenant": ":unselected:, confidence - 0.685",
-      "Annual Revenues": "$ 725000, confidence - 0.739",
-      "Occupied Area": "17000 SQ FT, confidence - 0.941",
-      "Open To Public Area": "3000 SQ FT, confidence - 0.827",
-      "Total Building Area": "26520 SQ FT, confidence - 0.755",
-      "Any Area Leased To Others?": "Y / N N, confidence - 0.427",
-      "Description Of Operations": "IT Services and Operations, confidence - 0.978"
-    },
-    "Premises 2": {
-      "City Limits Inside": ":unselected:, confidence - 0.616",
-      "City Limits Outside": ":unselected:, confidence - 0.494",
-      "Interest Owner": ":unselected:, confidence - 0.67",
-      "Interest Tenant": ":unselected:, confidence - 0.682",
-      "Annual Revenues": "$, confidence - 0.339",
-      "Open To Public Area": "FT, confidence - 0.303",
-      "Total Building Area": "SQ FT, confidence - 0.409"
-    },
-    "Premises 3": {
-      "City Limits Inside": ":unselected:, confidence - 0.524",
-      "City Limits Outside": ":unselected:, confidence - 0.486",
-      "City Limits Other": ":unselected:, confidence - 0.322",
-      "Interest Owner": ":unselected:, confidence - 0.677",
-      "Interest Tenant": ":unselected:, confidence - 0.678",
-      "Annual Revenues": "$, confidence - 0.314",
-      "Occupied Area": "SQ FT, confidence - 0.831",
-      "Open To Public Area": "SQ FT, confidence - 0.856",
-      "Total Building Area": "SQ FT, confidence - 0.877"
-    },
-    "Premises Info Three Any Area Leased To Others?": "Y N, confidence - 0.364",
-    "Premises Info Four City Limits Inside": ":unselected:, confidence - 0.546",
-    "Premises Info Four City Limits Outside": ":unselected:, confidence - 0.528",
-    "Premises Info Four City Limits Other": ":unselected:, confidence - 0.408",
-    "Premises Info Four Interest Owner": ":unselected:, confidence - 0.666",
-    "Premises Info Four Interest Tenant": ":unselected:, confidence - 0.669",
-    "Premises Info Four Interest Other": ":unselected:, confidence - 0.291",
-    "Premises Info Four Annual Revenues": "$, confidence - 0.332",
-    "Premises Info Four Occupied Area": "SQ FT, confidence - 0.828",
-    "Premises Info Four Open To Public Area": "SQ FT, confidence - 0.929",
-    "Premises Info Four Total Building Area": "SQ FT, confidence - 0.927",
-    "Premises Info Four Any Area Leased To Others?": "Y N, confidence - 0.221",
-    "total_confidence": 0.5590833333333333
-  },
-  "Nature of Business": {
-    "Nature Of Business Apartments": ":unselected:, confidence - 0.685",
-    "Nature Of Business Condominiums": ":unselected:, confidence - 0.683",
-    "Nature Of Business Contractor": ":unselected:, confidence - 0.672",
-    "Nature Of Business Institutional": ":unselected:, confidence - 0.682",
-    "Nature Of Business Manufacturing": ":unselected:, confidence - 0.529",
-    "Nature Of Business Office": ":selected:, confidence - 0.98",
-    "Nature Of Business Restaurant": ":unselected:, confidence - 0.51",
-    "Nature Of Business Retail": ":unselected:, confidence - 0.638",
-    "Nature Of Business Service": ":unselected:, confidence - 0.506",
-    "Nature Of Business Wholesale": ":unselected:, confidence - 0.638",
-    "Date Business Started (Mm/Dd/Yyyy)": "02/12/1964, confidence - 0.974",
-    "Description Of Primary Operations": "STORES OR SERVICE, confidence - 0",
-    "total_confidence": 0.62475
-  },
-  "Additional Interest": {
-    "Additional Interest Evidence Certificate": ":unselected:, confidence - 0.419",
-    "Additional Interest Evidence Policy": ":unselected:, confidence - 0.486",
-    "Additional Interest Evidence Send Bill": ":unselected:, confidence - 0.098",
-    "Additional Interest Additional Insured": ":unselected:, confidence - 0.825",
-    "Additional Interest Breach Of Warranty": ":unselected:, confidence - 0.756",
-    "Additional Interest Co-Owner": ":unselected:, confidence - 0.808",
-    "Additional Interest Employee As Lessor": ":unselected:, confidence - 0.732",
-    "Additional Interest Leaseback Owner": ":unselected:, confidence - 0.826",
-    "Additional Interest Lienholder": ":unselected:, confidence - 0.825",
-    "Additional Interest Loss Payee": ":unselected:, confidence - 0.749",
-    "Additional Interest Mortgagee": ":unselected:, confidence - 0.74",
-    "Additional Interest Owner": ":unselected:, confidence - 0.752",
-    "Additional Interest Registrant": ":unselected:, confidence - 0.747",
-    "Additional Interest Lender'S Loss Payable": ":unselected:, confidence - 0.703",
-    "Additional Interest Trustee": ":unselected:, confidence - 0.758",
-    "total_confidence": 0.6816
-  },
-  "Applicant Information": {
-    "Is The Applicant A Subsidiary Of Another Entity?": "N, confidence - 0.978",
-    "Does The Applicant Have Any Subsidiaries?": "N, confidence - 0.98",
-    "Has Business Been Placed In A Trust?": "N, confidence - 0.944",
-    "total_confidence": 0.9673333333333334
-  },
-  "Safety Program": {
-    "Is A Formal Safety Program In Operation? Safety Manual": ":selected:, confidence - 0.98",
-    "Is A Formal Safety Program In Operation? Monthly Meetings": ":selected:, confidence - 0.978",
-    "Is A Formal Safety Program In Operation? Osha": ":unselected:, confidence - 0.948",
-    "Is A Formal Safety Program In Operation? Other": ":unselected:, confidence - 0.726",
-    "Is A Formal Safety Program In Operation?": "Y, confidence - 0.974",
-    "total_confidence": 0.9212
-  },
-  "Loss History and Claims": {
-    "Loss History": "ENTER ALL CLAIMS OR LOSSES (REGARDLESS OF FAULT AND WHETHER OR NOT INSURED) OR OCCURRENCES THAT MAY GIVE RISE TO CLAIMS FOR THE LAST YEARS, confidence - 0.881",
-    "Any Past Losses Or Claims Relating To Sexual Abuse Or Molestation Allegations, Discrimination Or Negligent Hiring? Y/N": "N, confidence - 0.669",
-    "Any Uncorrected Fire And/Or Safety Code Violations? Y/N": "N, confidence - 0.971",
-    "Has Applicant Had A Forclosure, Repossesion, Bankruptcy Or Filed For Bankruptcy During Thr Last Five Years?": "N, confidence - 0.828",
-    "Has Applicant Had A Judgement Or Lien During The Last Five Years? Resolve Date 1": "N, confidence - 0.065",
-    "total_confidence": 0.6828
-  },
-  "Policy History": {
-    "Any Other Insurance With This Company?": "N, confidence - 0.926",
-    "Any Policy Or Coverage Declined, Cancelled Or Non-Renewed During The Prior Three Years For Any Premises Or Operations?": "N, confidence - 0.978",
-    "Reason For Policy Declined In Prior Three Years - Non-Payment": ":unselected:, confidence - 0.972",
-    "Reason For Policy Declined In Prior Three Years - Non-Renewal": ":unselected:, confidence - 0.933",
-    "Reason For Policy Declined In Prior Three Years - Condition Corrected": ":unselected:, confidence - 0.92",
-    "total_confidence": 0.9458
-  },
-  "Operations and Exposures": {
-    "Any Exposure To Flamables, Explosives, Chemicals? Y/N": "N, confidence - 0.586",
-    "Any Foreign Operations, Foreign Products Distributed In Usa, Or Us Products Sold/Distributed In Foreign Countries?": "N, confidence - 0.979",
-    "Does Applicant Have Other Business Ventures For Which Coverage Is Not Requested?": "N, confidence - 0",
-    "Does Applicant Own/Lease/Operate Any Drones? Y/N": "N, confidence - 0.657",
-    "Does Applicant Hire Others To Operate Drones? Y/N": "N, confidence - 0.651",
-    "During The Last Five Years (Ten In Ri), Has Any Applicant Been Indicted For Or Convicted Of Any Degree Of The Crime Of Fraud, Bribery, Arson Or Any Other  Arson-Related Crime In Connection With This Or Any Other Property? Y/N": "N, confidence - 0.853",
-    "total_confidence": 0.621
-  },
-  "Prior Carrier Information": {
-    "Prior Carrier Information Year 1": "2024, confidence - 0.82",
-    "Prior Carrier Information General Liability Policy Number 1": "$, confidence - 0.141",
-    "Prior Carrier Information Automobile Premium 1": "$, confidence - 0.139",
-    "Prior Carrier Information Automobile Expiration Date 1": "05/19/2025, confidence - 0.348",
-    "Prior Carrier Information Property Carrier 1": "Travelers Insurance, confidence - 0.491",
-    "Prior Carrier Information Property Policy Number 1": "TP1987621, confidence - 0.434",
-    "Prior Carrier Information Property Premium 1": "$ 48000, confidence - 0.318",
-    "Prior Carrier Information Property Effective Date 1": "05/19/2024, confidence - 0.491",
-    "Prior Carrier Information Other Carrier 1": "$, confidence - 0.169",
-    "total_confidence": 0.3723333333333334
-  },
-  "Producer/Broker Information": {
-    "State Producer License No": "NA, confidence - 0.492",
-    "Applicant'S Signature 2": "Berkshire Hathaway, confidence - 0.252",
-    "National Producer Number 2": "100-002541, confidence - 0.721",
-    "total_confidence": 0.4883333333333333
-  },
-  "Signature and Date": {
-    "Signature": "PERSONAL INFORMATION ABOUT YOU, INCLUDING INFORMATION FROM A CREDIT OR OTHER INVESTIGATIVE REPORT, MAY BE COLLECTED FROM PERSONS OTHER THAN YOU IN CONNECTION WITH THIS APPLICATION FOR INSURANCE AND SUBSEQUENT AMENDMENTS AND RENEWALS. SUCH INFORMATION AS WELL AS OTHER PERSONAL AND PRIVILEGED INFORMATION COLLECTED BY US OR OUR AGENTS MAY IN CERTAIN CIRCUMSTANCES BE DISCLOSED TO THIRD PARTIES WITHOUT YOUR AUTHORIZATION. CREDIT SCORING INFORMATION MAY BE USED TO HELP DETERMINE EITHER YOUR ELIGIBILITY FOR INSURANCE OR THE PREMIUM YOU WILL BE CHARGED. WE MAY USE A THIRD PARTY IN CONNECTION WITH THE DEVELOPMENT OF YOUR SCORE. YOU MAY HAVE THE RIGHT TO REVIEW YOUR PERSONAL INFORMATION IN OUR FILES AND REQUEST CORRECTION OF ANY INACCURACIES. YOU MAY ALSO HAVE THE RIGHT TO REQUEST IN WRITING THAT WE CONSIDER EXTRAORDINARY LIFE CIRCUMSTANCES IN CONNECTION WITH THE DEVELOPMENT OF YOUR CREDIT SCORE. THESE RIGHTS MAY BE LIMITED IN SOME STATES. PLEASE CONTACT YOUR AGENT OR BROKER TO LEARN HOW THESE RIGHTS MAY APPLY IN YOUR STATE OR FOR INSTRUCTIONS ON HOW TO SUBMIT A REQUEST TO US FOR A MORE DETAILED DESCRIPTION OF YOUR RIGHTS AND OUR PRACTICES REGARDING PERSONAL INFORMATION. (Not applicable in AZ, CA, DE, KS, MA, MN, ND, NY, OR, VA, or WV. Specific ACORD 38s are available for applicants in these states.), confidence - 0",
-    "Date": "07/15/2025, confidence - 0.858",
-    "total_confidence": 0.429
-  },
-  "Document_Confidence_Score": 0.937881255301106
-}
 
-here i want to store "Document_Type": "Acord" like below
 
-{
-  "Broker": {
-    "Agency Customer Id": "542198, confidence - 0.979",
-    "Agency": "Prime Brokers Ltd., confidence - 0.946",
-    "Contact Name": "William Grey, confidence - 0.962",
-    "Email Address": "greywilliam@primebrokers.com, confidence - 0.975",
-    "Phone": "+1 202 406 789, confidence - 0.824",
-    "Producer's Signature": "William Grey, confidence - 0.69",
-    "Producer's Name Please Print": "William Grey, confidence - 0.453",
-    "total_confidence": 0.9106666666666666
-  },
-  "Carrier": {
-    "Carrier": "Phoenix Insurers Ltd., confidence - 0.929",
-    "total_confidence": 0.929
-  },
-  "Policy": {
-    "Program Code": "P1, confidence - 0.962",
-    "Company Policy Or Program Name": "Program 1, confidence - 0.974",
-    "Proposed Effective Date": "07/15/2025, confidence - 0.969",
-    "Proposed Expiration Date": "07/15/2028, confidence - 0.973",
-    "Billing Plan - Direct": ":unselected:, confidence - 0.676",
-    "Billing Plan - Agency": ":selected:, confidence - 0.961",
-    "Deposit": "$, confidence - 0.675",
-    "Minimum Premium": "$ $,\nconfidence - 0.39",
-    "total_confidence": 0.773
-  },
-  "Transaction Status": {
-    "Status Of Transaction-Quote": ":unselected:, confidence - 0.677",
-    "Status Of Transaction-Bound": ":unselected:, confidence - 0.683",
-    "Status Of Transaction-Change": ":unselected:, confidence - 0.684",
-    "Status Of Transaction-Cancel": ":unselected:, confidence - 0.685",
-    "Status Of Transaction-Issue Policy": ":selected:, confidence - 0.961",
-    "Status Of Transaction-Renew": ":unselected:, confidence - 0.754",
-    "Status Of Transaction-Date": "07/15/2025, confidence - 0.98",
-    "Status Of Transaction-Time": "6:15 PM, confidence - 0.981",
-    "total_confidence": 0.8006249999999999
-  },
-  "Line of Business": {
-    "Boiler And Machinery": ":unselected:, confidence - 0.757",
-    "Boiler And Machinery Premium": "$, confidence - 0.806",
-    "Business Auto": ":unselected:, confidence - 0.754",
-    "Business Auto Premium": "$, confidence - 0.516",
-    "Business Owners": ":unselected:, confidence - 0.699",
-    "Business Owners Premium": "$, confidence - 0.51",
-    "Commercial General Liability": ":unselected:, confidence - 0.702",
-    "Commercial General Liability Premium": "$, confidence - 0.617",
-    "Commercial Inland Marine": ":unselected:, confidence - 0.756",
-    "Commercial Inland Marine Premium": "$, confidence - 0.593",
-    "Commercial Property": ":selected:, confidence - 0.974",
-    "Commercial Property Premium": "$, confidence - 0.488",
-    "Crime": ":unselected:, confidence - 0.822",
-    "Crime Premium": "$, confidence - 0.496",
-    "Fiduciary Liability": ":unselected:, confidence - 0.508",
-    "Garage And Dealers": ":unselected:, confidence - 0.633",
-    "Liquor Liability": ":unselected:, confidence - 0.525",
-    "Motor Carrier": ":unselected:, confidence - 0.445",
-    "Umbrella": ":unselected:, confidence - 0.491",
-    "Other Lob 2 Premium": "$ $,\nconfidence - 0.362",
-    "Other Lob 3 Premium": "$ $,\nconfidence - 0.328",
-    "Other Lob 5 Premium": "$, confidence - 0.15",
-    "total_confidence": 0.5908095238095238
-  },
-  "Attachments": {
-    "Attachment - Accounts Receivable/Valuable Papers": ":selected:, confidence - 0.978",
-    "Attchment - Additional Interest Schedule": ":unselected:, confidence - 0.884",
-    "Attachment - Additional Premises Information Schedule": ":unselected:, confidence - 0.857",
-    "Attachment - Apartment Building Supplement": ":selected:, confidence - 0.98",
-    "Attachment - Condo Assn Bylaws": ":unselected:, confidence - 0.884",
-    "Attachment - Contractors Supplement": ":selected:, confidence - 0.98",
-    "Attachment - Coverages Schedule": ":unselected:, confidence - 0.857",
-    "Attachment - Dealers Section": ":unselected:, confidence - 0.758",
-    "Attachment - Driver Information Schedule": ":unselected:, confidence - 0.758",
-    "Attachment - Electronic Data Processing Section": ":unselected:, confidence - 0.826",
-    "Attachment - Glass And Sign Section": ":unselected:, confidence - 0.673",
-    "Attachment - Hotel/Motel Supplement": ":unselected:, confidence - 0.685",
-    "Attachment - Installation/Builders Risk Section": ":selected:, confidence - 0.98",
-    "Attachment - International Liability Eposure Supplement": ":unselected:, confidence - 0.685",
-    "Attachment - International Property Exposure Supplement": ":unselected:, confidence - 0.673",
-    "Attachment - Loss Summary": ":unselected:, confidence - 0.673",
-    "Attachment - Open Cargo Section": ":unselected:, confidence - 0.673",
-    "Attachment - Premium Payment Supplement": ":unselected:, confidence - 0.672",
-    "Attachment - Professional Liability Supplement": ":unselected:, confidence - 0.673",
-    "Attachment - Restraunt/Tavern Supplement": ":unselected:, confidence - 0.672",
-    "Attachment - Statement/Schedule Of Values": ":unselected:, confidence - 0.486",
-    "Attachment - State Supplement": ":unselected:, confidence - 0.529",
-    "Attachment - Vacant Building Supplement": ":unselected:, confidence - 0.51",
-    "Attachment - Vehicle Schedule": ":unselected:, confidence - 0.486",
-    "total_confidence": 0.7430000000000002
-  },
-  "Insured": {
-    "Name And Mailing Address": "High Tech Solution, 456 Elm St, Suite 200, Los Angeles, CA 90001, confidence - 0.915",
-    "Individual": ":unselected:, confidence - 0.852",
-    "Joint Venture": ":unselected:, confidence - 0.602",
-    "LLC": ":unselected:, confidence - 0.684",
-    "LLC 2": ":unselected:, confidence - 0.616",
-    "Not For Profit Org": ":unselected:, confidence - 0.684",
-    "Partnership": ":unselected:, confidence - 0.684",
-    "Partnership 2": ":unselected:, confidence - 0.582",
-    "Subchapter S Corporation": ":unselected:, confidence - 0.685",
-    "Trust": ":unselected:, confidence - 0.694",
-    "Other Corporation": ":unselected:, confidence - 0.334",
-    "Corporation": ":selected:, confidence - 0.976",
-    "total_confidence": 0.7007999999999999
-  },
-  "Loss History": {
-    "Loss History Check If None": ":selected:, confidence - 0.806",
-    "Applicant's Initials": "BH, confidence - 0.98",
-    "total_confidence": 0.806
-  },
-  "Contacts": {
-    "Primary Contact": {
-      "Contact Type": "Primary, confidence - 0.983",
-      "Contact Name": "Michael Hill, confidence - 0.969",
-      "Primary Email Address": "hillmichael@bhway.com, confidence - 0.948",
-      "Primary Phone": "+1 987612342, confidence - 0.848",
-      "Primary Phone Home": ":unselected:, confidence - 0.97",
-      "Primary Phone Bus": ":unselected:, confidence - 0.962",
-      "Primary Phone Cell": ":selected:, confidence - 0.657",
-      "Secondary Phone Home": ":unselected:, confidence - 0.956",
-      "Secondary Phone Bus": ":unselected:, confidence - 0.961",
-      "Secondary Phone Cell": ":unselected:, confidence - 0.944"
-    },
-    "Secondary Contact": {
-      "Contact Type": "Secondary, confidence - 0.979",
-      "Contact Name": "Bill Deeney, confidence - 0.963",
-      "Primary Email Address": "deeneybill@bhway.com, confidence - 0.973",
-      "Primary Phone Home": ":unselected:, confidence - 0.95",
-      "Primary Phone Bus": ":unselected:, confidence - 0.954",
-      "Primary Phone Cell": ":unselected:, confidence - 0.942",
-      "Secondary Phone Home": ":unselected:, confidence - 0.931",
-      "Secondary Phone Bus": ":unselected:, confidence - 0.961",
-      "Secondary Phone Cell": ":unselected:, confidence - 0.961"
-    }
-  },
-  "Premises Information": {
-    "Premises 1": {
-      "Street": "123 Penny Lane, confidence - 0.938",
-      "City": "Springfield, confidence - 0.981",
-      "State": "Illinois, confidence - 0.82",
-      "Zip": "ZIP:62629, confidence - 0.391",
-      "City Limits Inside": ":selected:, confidence - 0.961",
-      "City Limits Outside": ":unselected:, confidence - 0.638",
-      "City Limits Other": ":unselected:, confidence - 0.34",
-      "Interest Owner": ":selected:, confidence - 0.973",
-      "Interest Tenant": ":unselected:, confidence - 0.685",
-      "Annual Revenues": "$ 725000, confidence - 0.739",
-      "Occupied Area": "17000 SQ FT, confidence - 0.941",
-      "Open To Public Area": "3000 SQ FT, confidence - 0.827",
-      "Total Building Area": "26520 SQ FT, confidence - 0.755",
-      "Any Area Leased To Others?": "Y / N N, confidence - 0.427",
-      "Description Of Operations": "IT Services and Operations, confidence - 0.978"
-    },
-    "Premises 2": {
-      "City Limits Inside": ":unselected:, confidence - 0.616",
-      "City Limits Outside": ":unselected:, confidence - 0.494",
-      "Interest Owner": ":unselected:, confidence - 0.67",
-      "Interest Tenant": ":unselected:, confidence - 0.682",
-      "Annual Revenues": "$, confidence - 0.339",
-      "Open To Public Area": "FT, confidence - 0.303",
-      "Total Building Area": "SQ FT, confidence - 0.409"
-    },
-    "Premises 3": {
-      "City Limits Inside": ":unselected:, confidence - 0.524",
-      "City Limits Outside": ":unselected:, confidence - 0.486",
-      "City Limits Other": ":unselected:, confidence - 0.322",
-      "Interest Owner": ":unselected:, confidence - 0.677",
-      "Interest Tenant": ":unselected:, confidence - 0.678",
-      "Annual Revenues": "$, confidence - 0.314",
-      "Occupied Area": "SQ FT, confidence - 0.831",
-      "Open To Public Area": "SQ FT, confidence - 0.856",
-      "Total Building Area": "SQ FT, confidence - 0.877"
-    },
-    "Premises Info Three Any Area Leased To Others?": "Y N, confidence - 0.364",
-    "Premises Info Four City Limits Inside": ":unselected:, confidence - 0.546",
-    "Premises Info Four City Limits Outside": ":unselected:, confidence - 0.528",
-    "Premises Info Four City Limits Other": ":unselected:, confidence - 0.408",
-    "Premises Info Four Interest Owner": ":unselected:, confidence - 0.666",
-    "Premises Info Four Interest Tenant": ":unselected:, confidence - 0.669",
-    "Premises Info Four Interest Other": ":unselected:, confidence - 0.291",
-    "Premises Info Four Annual Revenues": "$, confidence - 0.332",
-    "Premises Info Four Occupied Area": "SQ FT, confidence - 0.828",
-    "Premises Info Four Open To Public Area": "SQ FT, confidence - 0.929",
-    "Premises Info Four Total Building Area": "SQ FT, confidence - 0.927",
-    "Premises Info Four Any Area Leased To Others?": "Y N, confidence - 0.221",
-    "total_confidence": 0.5590833333333333
-  },
-  "Nature of Business": {
-    "Nature Of Business Apartments": ":unselected:, confidence - 0.685",
-    "Nature Of Business Condominiums": ":unselected:, confidence - 0.683",
-    "Nature Of Business Contractor": ":unselected:, confidence - 0.672",
-    "Nature Of Business Institutional": ":unselected:, confidence - 0.682",
-    "Nature Of Business Manufacturing": ":unselected:, confidence - 0.529",
-    "Nature Of Business Office": ":selected:, confidence - 0.98",
-    "Nature Of Business Restaurant": ":unselected:, confidence - 0.51",
-    "Nature Of Business Retail": ":unselected:, confidence - 0.638",
-    "Nature Of Business Service": ":unselected:, confidence - 0.506",
-    "Nature Of Business Wholesale": ":unselected:, confidence - 0.638",
-    "Date Business Started (Mm/Dd/Yyyy)": "02/12/1964, confidence - 0.974",
-    "Description Of Primary Operations": "STORES OR SERVICE, confidence - 0",
-    "total_confidence": 0.62475
-  },
-  "Additional Interest": {
-    "Additional Interest Evidence Certificate": ":unselected:, confidence - 0.419",
-    "Additional Interest Evidence Policy": ":unselected:, confidence - 0.486",
-    "Additional Interest Evidence Send Bill": ":unselected:, confidence - 0.098",
-    "Additional Interest Additional Insured": ":unselected:, confidence - 0.825",
-    "Additional Interest Breach Of Warranty": ":unselected:, confidence - 0.756",
-    "Additional Interest Co-Owner": ":unselected:, confidence - 0.808",
-    "Additional Interest Employee As Lessor": ":unselected:, confidence - 0.732",
-    "Additional Interest Leaseback Owner": ":unselected:, confidence - 0.826",
-    "Additional Interest Lienholder": ":unselected:, confidence - 0.825",
-    "Additional Interest Loss Payee": ":unselected:, confidence - 0.749",
-    "Additional Interest Mortgagee": ":unselected:, confidence - 0.74",
-    "Additional Interest Owner": ":unselected:, confidence - 0.752",
-    "Additional Interest Registrant": ":unselected:, confidence - 0.747",
-    "Additional Interest Lender'S Loss Payable": ":unselected:, confidence - 0.703",
-    "Additional Interest Trustee": ":unselected:, confidence - 0.758",
-    "total_confidence": 0.6816
-  },
-  "Applicant Information": {
-    "Is The Applicant A Subsidiary Of Another Entity?": "N, confidence - 0.978",
-    "Does The Applicant Have Any Subsidiaries?": "N, confidence - 0.98",
-    "Has Business Been Placed In A Trust?": "N, confidence - 0.944",
-    "total_confidence": 0.9673333333333334
-  },
-  "Safety Program": {
-    "Is A Formal Safety Program In Operation? Safety Manual": ":selected:, confidence - 0.98",
-    "Is A Formal Safety Program In Operation? Monthly Meetings": ":selected:, confidence - 0.978",
-    "Is A Formal Safety Program In Operation? Osha": ":unselected:, confidence - 0.948",
-    "Is A Formal Safety Program In Operation? Other": ":unselected:, confidence - 0.726",
-    "Is A Formal Safety Program In Operation?": "Y, confidence - 0.974",
-    "total_confidence": 0.9212
-  },
-  "Loss History and Claims": {
-    "Loss History": "ENTER ALL CLAIMS OR LOSSES (REGARDLESS OF FAULT AND WHETHER OR NOT INSURED) OR OCCURRENCES THAT MAY GIVE RISE TO CLAIMS FOR THE LAST YEARS, confidence - 0.881",
-    "Any Past Losses Or Claims Relating To Sexual Abuse Or Molestation Allegations, Discrimination Or Negligent Hiring? Y/N": "N, confidence - 0.669",
-    "Any Uncorrected Fire And/Or Safety Code Violations? Y/N": "N, confidence - 0.971",
-    "Has Applicant Had A Forclosure, Repossesion, Bankruptcy Or Filed For Bankruptcy During Thr Last Five Years?": "N, confidence - 0.828",
-    "Has Applicant Had A Judgement Or Lien During The Last Five Years? Resolve Date 1": "N, confidence - 0.065",
-    "total_confidence": 0.6828
-  },
-  "Policy History": {
-    "Any Other Insurance With This Company?": "N, confidence - 0.926",
-    "Any Policy Or Coverage Declined, Cancelled Or Non-Renewed During The Prior Three Years For Any Premises Or Operations?": "N, confidence - 0.978",
-    "Reason For Policy Declined In Prior Three Years - Non-Payment": ":unselected:, confidence - 0.972",
-    "Reason For Policy Declined In Prior Three Years - Non-Renewal": ":unselected:, confidence - 0.933",
-    "Reason For Policy Declined In Prior Three Years - Condition Corrected": ":unselected:, confidence - 0.92",
-    "total_confidence": 0.9458
-  },
-  "Operations and Exposures": {
-    "Any Exposure To Flamables, Explosives, Chemicals? Y/N": "N, confidence - 0.586",
-    "Any Foreign Operations, Foreign Products Distributed In Usa, Or Us Products Sold/Distributed In Foreign Countries?": "N, confidence - 0.979",
-    "Does Applicant Have Other Business Ventures For Which Coverage Is Not Requested?": "N, confidence - 0",
-    "Does Applicant Own/Lease/Operate Any Drones? Y/N": "N, confidence - 0.657",
-    "Does Applicant Hire Others To Operate Drones? Y/N": "N, confidence - 0.651",
-    "During The Last Five Years (Ten In Ri), Has Any Applicant Been Indicted For Or Convicted Of Any Degree Of The Crime Of Fraud, Bribery, Arson Or Any Other  Arson-Related Crime In Connection With This Or Any Other Property? Y/N": "N, confidence - 0.853",
-    "total_confidence": 0.621
-  },
-  "Prior Carrier Information": {
-    "Prior Carrier Information Year 1": "2024, confidence - 0.82",
-    "Prior Carrier Information General Liability Policy Number 1": "$, confidence - 0.141",
-    "Prior Carrier Information Automobile Premium 1": "$, confidence - 0.139",
-    "Prior Carrier Information Automobile Expiration Date 1": "05/19/2025, confidence - 0.348",
-    "Prior Carrier Information Property Carrier 1": "Travelers Insurance, confidence - 0.491",
-    "Prior Carrier Information Property Policy Number 1": "TP1987621, confidence - 0.434",
-    "Prior Carrier Information Property Premium 1": "$ 48000, confidence - 0.318",
-    "Prior Carrier Information Property Effective Date 1": "05/19/2024, confidence - 0.491",
-    "Prior Carrier Information Other Carrier 1": "$, confidence - 0.169",
-    "total_confidence": 0.3723333333333334
-  },
-  "Producer/Broker Information": {
-    "State Producer License No": "NA, confidence - 0.492",
-    "Applicant'S Signature 2": "Berkshire Hathaway, confidence - 0.252",
-    "National Producer Number 2": "100-002541, confidence - 0.721",
-    "total_confidence": 0.4883333333333333
-  },
-  "Signature and Date": {
-    "Signature": "PERSONAL INFORMATION ABOUT YOU, INCLUDING INFORMATION FROM A CREDIT OR OTHER INVESTIGATIVE REPORT, MAY BE COLLECTED FROM PERSONS OTHER THAN YOU IN CONNECTION WITH THIS APPLICATION FOR INSURANCE AND SUBSEQUENT AMENDMENTS AND RENEWALS. SUCH INFORMATION AS WELL AS OTHER PERSONAL AND PRIVILEGED INFORMATION COLLECTED BY US OR OUR AGENTS MAY IN CERTAIN CIRCUMSTANCES BE DISCLOSED TO THIRD PARTIES WITHOUT YOUR AUTHORIZATION. CREDIT SCORING INFORMATION MAY BE USED TO HELP DETERMINE EITHER YOUR ELIGIBILITY FOR INSURANCE OR THE PREMIUM YOU WILL BE CHARGED. WE MAY USE A THIRD PARTY IN CONNECTION WITH THE DEVELOPMENT OF YOUR SCORE. YOU MAY HAVE THE RIGHT TO REVIEW YOUR PERSONAL INFORMATION IN OUR FILES AND REQUEST CORRECTION OF ANY INACCURACIES. YOU MAY ALSO HAVE THE RIGHT TO REQUEST IN WRITING THAT WE CONSIDER EXTRAORDINARY LIFE CIRCUMSTANCES IN CONNECTION WITH THE DEVELOPMENT OF YOUR CREDIT SCORE. THESE RIGHTS MAY BE LIMITED IN SOME STATES. PLEASE CONTACT YOUR AGENT OR BROKER TO LEARN HOW THESE RIGHTS MAY APPLY IN YOUR STATE OR FOR INSTRUCTIONS ON HOW TO SUBMIT A REQUEST TO US FOR A MORE DETAILED DESCRIPTION OF YOUR RIGHTS AND OUR PRACTICES REGARDING PERSONAL INFORMATION. (Not applicable in AZ, CA, DE, KS, MA, MN, ND, NY, OR, VA, or WV. Specific ACORD 38s are available for applicants in these states.), confidence - 0",
-    "Date": "07/15/2025, confidence - 0.858",
-    "total_confidence": 0.429
-  },
-  "Document_Confidence_Score": 0.937881255301106,
-  "Document_Type": "Acord" 
-}
+final_processor.py
 
-so before uploading this json to blob
-add that Document_Type code here
+import os
+import json
+from dotenv import load_dotenv
+from openai import AzureOpenAI
 
+# ------------------ CONFIG ------------------
+load_dotenv()
+
+client = AzureOpenAI(
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    api_version="2024-05-01-preview"
+)
+
+MODEL = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+CONFIDENCE_THRESHOLD = 0.5
+# OUTPUT_FILE = "final_output.json"
+output_dir = os.path.join(os.getcwd(), "output")
+INPUT_FILE = os.path.join(output_dir, "output.json")
+
+os.makedirs(output_dir, exist_ok=True)
+OUTPUT_FILE = os.path.join(output_dir, "final_output.json")
+MAX_CHARS = 12000
+
+
+def chunk_text(text, max_chars=MAX_CHARS):
+    """Split long text into safe chunks for OpenAI input."""
+    chunks, current, length = [], [], 0
+    for line in text.splitlines():
+        if length + len(line) > max_chars:
+            chunks.append("\n".join(current))
+            current, length = [], 0
+        current.append(line)
+        length += len(line)
+    if current:
+        chunks.append("\n".join(current))
+    return chunks
+
+
+#New Subham's code
+def clean_field_name(name: str) -> str:
+    """Remove prefixes like 'LOB - ' and normalize casing."""
+    name = name.replace("LOB -", "").strip()
+    return name.title()
+
+
+# def normalize_value(val):
+#     """Join token lists like ['6:00', 'AM'] → '6:00 AM'."""
+#     if isinstance(val, list):
+#         val = " ".join(str(v) for v in val if v)
+#     elif isinstance(val, dict):
+#         val = val.get("valueString") or val.get("content") or str(val)
+#     return str(val).strip()
+
+
+# def simplify_fields(raw_json):
+#     """Simplify Azure Doc Intelligence output."""
+#     simplified = {}
+#     docs = raw_json.get("documents", [])
+#     if not docs:
+#         return simplified
+
+#     for doc in docs:
+#         for key, value in doc.get("fields", {}).items():
+#             if "valueString" in value:
+#                 val = normalize_value(value["valueString"])
+#             elif "valueBoolean" in value:
+#                 val = value["valueBoolean"]
+#             elif "content" in value:
+#                 val = normalize_value(value["content"])
+#             else:
+#                 val = None
+
+#             conf = value.get("confidence", None)
+#             if val in [None, ""]:
+#                 continue
+
+#             entry = {"value": val, "confidence": conf}
+#             entry["low_confidence"] = conf is not None and conf < CONFIDENCE_THRESHOLD
+#             simplified[key] = entry
+#     return simplified
+
+
+
+#New Subham's code
+def simplify_fields(raw_json):
+    """Simplify Azure Doc Intelligence output with confidence preserved."""
+    simplified = {}
+    docs = raw_json.get("documents", [])
+    if not docs:
+        return simplified
+
+    for doc in docs:
+        for key, value in doc.get("fields", {}).items():
+            val = value.get("valueString") or value.get("content") or value.get("valueBoolean")
+            conf = value.get("confidence", None)
+            if val in [None, ""]:
+                continue
+            cleaned_key = clean_field_name(key)
+            simplified[cleaned_key] = {"value": val, "confidence": conf}
+    return simplified
+
+
+
+
+
+
+# def smart_group_fields(fields):
+#     """Group related fields (LOB, Policy, Broker, etc.)."""
+#     groups = {}
+#     for key, info in fields.items():
+#         lname = key.lower()
+#         if "lob" in lname or "lineofbusiness" in lname:
+#             group = "Line of Business"
+#         elif "policy" in lname:
+#             group = "Policy"
+#         elif "insured" in lname:
+#             group = "Insured Details"
+#         elif "broker" in lname:
+#             group = "Broker Details"
+#         elif "contact" in lname:
+#             group = "Contact Details"
+#         elif "address" in lname:
+#             group = "Address"
+#         else:
+#             group = "General"
+#         groups.setdefault(group, {})[key] = info
+#     return groups
+
+
+# def build_prompt(cleaned_data):
+#     """Structured prompt for GPT."""
+#     return f"""
+# You are a JSON data formatter. The following JSON is the output from Azure Document Intelligence for an ACORD insurance form.
+
+# Return only a valid JSON (no commentary, no markdown, no explanations).
+
+# Requirements:
+# 1. Extract clean key-value pairs grouped logically (Line of Business, Policy, Broker, etc.).
+# 2. Each field must show its value and confidence like:
+#    "Field Name": "Value, confidence - 0.87"
+#    if field is repeated extract both under its relevant umbrella section.
+#    Use semantic context, proximity, and field coordinates to determine grouping in the document to assign each field to its most relevant umbrella category.
+# 3. Combine split tokens like ["6:00", "AM"] → "6:00 AM".
+# 4. Add "total_confidence" (avg for group).
+# 5. Add "overall_total_confidence" at end.
+
+# Cleaned JSON input:
+# {json.dumps(cleaned_data, indent=2)}
+# """
+
+
+#New Subham's code
+def build_prompt(cleaned_data):
+    """Structured prompt for GPT (dynamic grouping)."""
+    return f"""
+You are a JSON data formatter. The following JSON is the output from Azure Document Intelligence for an ACORD insurance form.
+
+Return only valid JSON (no commentary, no markdown, no explanations).
+
+Requirements:
+1. Group fields logically (Line of Business, Policy, Broker, Insured, Address, etc.) based on semantic context. 
+   The grouping is flexible — create categories as needed.
+2. Each field must show its value and confidence exactly as in the input JSON, e.g.:
+   "Field Name": "Value, confidence - 0.87"
+   Do not recalculate or lower confidence values.
+3. If a field is repeated, include all instances under the most relevant group.
+4. Combine split tokens like ["6:00", "AM"] → "6:00 AM".
+5. Do not compute averages — Python will handle total_confidence and overall_total_confidence.
+
+Cleaned JSON input:
+{json.dumps(cleaned_data, indent=2)}
+"""
+
+
+
+
+
+
+
+# def process_chunk(chunk):
+#     """Send one chunk to GPT and ensure JSON-only output."""
+#     response = client.chat.completions.create(
+#         model=MODEL,
+#         temperature=0,
+#         messages=[
+#             {"role": "system", "content": "You are a precise document understanding assistant that outputs only JSON."},
+#             {"role": "user", "content": build_prompt(chunk)},
+#         ]
+#     )
+
+#     text = response.choices[0].message.content.strip()
+#     try:
+#         start = text.find("{")
+#         end = text.rfind("}") + 1
+#         json_text = text[start:end]
+#         return json.loads(json_text)
+#     except Exception:
+#         print("⚠️ Warning: GPT output not clean JSON. Attempting recovery.")
+#         return {"error": "Invalid JSON returned", "raw_output": text}
+
+
+
+
+#New Subham's code
+
+def process_chunk(chunk):
+    """Send one chunk to GPT and ensure JSON-only output."""
+    response = client.chat.completions.create(
+        model=MODEL,
+        temperature=0,
+        messages=[
+            {"role": "system", "content": "You are a precise document understanding assistant that outputs only JSON."},
+            {"role": "user", "content": build_prompt(chunk)},
+        ]
+    )
+
+    text = response.choices[0].message.content.strip()
     try:
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        json_text = text[start:end]
+        return json.loads(json_text)
+    except Exception:
+        print("Warning: GPT output not clean JSON. Attempting recovery.")
+        return {"error": "Invalid JSON returned", "raw_output": text}
 
-    except Exception as e:    
-        
+
+
+
+# def process_azure_output(json_data):
+#     """Process entire Doc Intelligence JSON with chunking + GPT."""
+#     simplified = simplify_fields(json_data)
+#     grouped = smart_group_fields(simplified)
+#     text_data = json.dumps(grouped, indent=2)
+
+#     chunks = chunk_text(text_data)
+#     final_combined = {}
+
+#     for chunk in chunks:
+#         result = process_chunk(chunk)
+#         if isinstance(result, dict):
+#             for k, v in result.items():
+#                 if k in final_combined and isinstance(v, dict):
+#                     final_combined[k].update(v)
+#                 else:
+#                     final_combined[k] = v
+
+#     print(f"✅ Final JSON processed successfully.")
+#     return final_combined
+
+
+
+
+
+    # except Exception:
+    #     print("⚠️ Warning: GPT output not clean JSON. Attempting recovery.")
+    #     return {"error": "Invalid JSON returned", "raw_output": text}
+
+
+
+#New Subham's code
+def calculate_overall_confidence(original_json):
+    """Calculate overall average confidence directly from original JSON."""
+    def extract_confidences(obj):
+        confidences = []
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if key == "confidence" and isinstance(value, (int, float)):
+                    confidences.append(value)
+                else:
+                    confidences.extend(extract_confidences(value))
+        elif isinstance(obj, list):
+            for item in obj:
+                confidences.extend(extract_confidences(item))
+        return confidences
+
+    confidences = extract_confidences(original_json)
+    if confidences:
+        return sum(confidences) / len(confidences)
+    return None
+
+def add_confidence_averages(grouped_data, original_data):
+    """Compute total_confidence per group using original JSON confidence values."""
+    confidence_lookup = {clean_field_name(k): v.get("confidence") for k, v in original_data.items()}
+
+    for group, fields in grouped_data.items():
+        if not isinstance(fields, dict):
+            continue
+        confidences = []
+        for field in fields.keys():
+            if field in confidence_lookup and confidence_lookup[field] is not None:
+                confidences.append(confidence_lookup[field])
+        if confidences:
+            avg_conf = sum(confidences) / len(confidences)
+            grouped_data[group]["total_confidence"] = avg_conf
+    return grouped_data
+
+def process_azure_output(json_data):
+    """Process entire Doc Intelligence JSON with GPT grouping + confidence math."""
+    simplified = simplify_fields(json_data)
+    text_data = json.dumps(simplified, indent=2)
+    chunks = chunk_text(text_data)
+    final_combined = {}
+
+    for chunk in chunks:
+        result = process_chunk(chunk)
+        if isinstance(result, dict):
+            for k, v in result.items():
+                if k in final_combined and isinstance(v, dict):
+                    final_combined[k].update(v)
+                else:
+                    final_combined[k] = v
+
+    # Add group averages
+    final_combined = add_confidence_averages(final_combined, simplified)
+
+    # Add overall average from original JSON
+    overall_avg = calculate_overall_confidence(json_data)
+    if overall_avg is not None:
+        final_combined["Document_Confidence_Score"] = overall_avg
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(final_combined, f, indent=2, ensure_ascii=False)
+
+    print(f"✅ Clean JSON written to {OUTPUT_FILE}")
+    return final_combined
+
+# ------------------ MAIN ------------------
+if __name__ == "__main__":
+
+    json_path = os.path.join("output","output.json")
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        raw_json = json.load(f)
+
+    process_azure_output(raw_json)
+
+
+
+router.py
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, validator
+
+from image_processor import analyze_file_async
+
+router = APIRouter()
+
+
+class DocumentExtractMCP(BaseModel):
+    """Trigger document extraction for a PDF file located in blob storage."""
+    AgentName: str = Field(
+        default="DocumentExtractAgent",
+        description="The unique agent name of the agent that is being called"
+    )
+    BlobUrl: str = Field(
+        ...,
+        description="Required: full blob URL (https://...) or container/blob path (container/path/to/file.pdf) to analyze"
+    )
+
+    @validator("BlobUrl")
+    def bloburl_must_not_be_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("BlobUrl must be a non-empty string pointing to the blob (full URL or container/blob path).")
+        return v.strip()
+
+
+@router.post("/document_extract_mcp", operation_id="document_extract_mcp")
+async def document_extract_mcp(p_body: DocumentExtractMCP):
+    """
+    Analyze a PDF from Azure Blob storage using image_processor.analyze_file_async and
+    return the analyzer's structured result.
+
+    Body:
+
+        AgentName (str): Agent name (optional)
+
+        BlobUrl (str): Required full blob URL or container/blob path.
+    """
+    try:
+        result = await analyze_file_async(bloburl=p_body.BlobUrl)
+
+        return JSONResponse(content={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": result
+        })
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": f"Extraction failed: {e}"})
+
+
+
+

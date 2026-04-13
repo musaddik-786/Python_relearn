@@ -1,86 +1,242 @@
-(agent_venv) Jarvis@JarvisPhase2:~/Chinmay/JarvisAgent_2.0/Jarvis/EmailIntentAgent$ python3 myserver.py 
-🔭 OpenTelemetry Tracing Details 🔭
-|  Phoenix Project: jarvis_tracked
-|  Span Processor: SimpleSpanProcessor
-|  Collector Endpoint: phoenix-app-1772100950.eastus.azurecontainer.io:4317
-|  Transport: gRPC
-|  Transport Headers: {'authorization': '****'}
-|  
-|  Using a default SpanProcessor. `add_span_processor` will overwrite this default.
-|  
-|  ⚠️ WARNING: It is strongly advised to use a BatchSpanProcessor in production environments.
-|  
-|  `register` has set this TracerProvider as the global OpenTelemetry default.
-|  To disable this behavior, call `register` with `set_global_tracer_provider=False`.
+# %%
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import os
+from dotenv import load_dotenv
+from langchain_openai.chat_models import AzureChatOpenAI
+from langgraph.graph.message import add_messages
+from langchain_core.messages import AIMessage, ToolMessage, SystemMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode
+from typing import TypedDict, Annotated
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from openinference.instrumentation.langchain import LangChainInstrumentor
+from phoenix.otel import register
+from phoenix.client import Client  # for phoenix prompt
+# from graph_execution_logger import stream_and_log
 
-INFO:     Started server process [17765]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8026 (Press CTRL+C to quit)
-INFO:     127.0.0.1:49688 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49688 - "GET /openapi.json HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49704 - "POST /chat HTTP/1.1" 500 Internal Server Error
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/uvicorn/protocols/http/h11_impl.py", line 410, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/fastapi/applications.py", line 1133, in __call__
-    await super().__call__(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
-    raise exc
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
-    await self.app(scope, receive, _send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/middleware/cors.py", line 93, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/middleware/cors.py", line 144, in simple_response
-    await self.app(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/routing.py", line 716, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/routing.py", line 736, in app
-    await route.handle(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/routing.py", line 290, in handle
-    await self.app(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/fastapi/routing.py", line 123, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/fastapi/routing.py", line 109, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/fastapi/routing.py", line 387, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/fastapi/routing.py", line 288, in run_endpoint_function
-    return await dependant.call(**values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/Jarvis/Chinmay/JarvisAgent_2.0/Jarvis/EmailIntentAgent/myserver.py", line 106, in chat
-    body = await request.json()
-           ^^^^^^^^^^^^^^^^^^^^
-  File "/home/Jarvis/Chinmay/JarvisAgent/Jarvis/agent_venv/lib/python3.11/site-packages/starlette/requests.py", line 250, in json
-    self._json = json.loads(body)
-                 ^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/json/decoder.py", line 337, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/json/decoder.py", line 355, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+# %%
+config_mcp_server = {
+    "email_reader_mcp": {
+        "url": "http://localhost:8655/api/v1/email_intent_agent/mcp",
+        "transport": "streamable_http",
+    }
+}
+
+# %%
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+
+# %%
+def router(state: State):
+    last_message = state["messages"][-1]
+    if isinstance(last_message, AIMessage) and getattr(last_message, 'tool_calls', None):
+        return "tools"
+    if isinstance(last_message, AIMessage) and last_message.content:
+        content = last_message.content
+        if 'Continue' in content:
+            return "tools"
+        elif "End" in content:
+            return "End"
+    return "End"
+
+# %%
+
+load_dotenv()
+
+endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+credential = os.getenv("AZURE_OPENAI_API_KEY")
+deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+api_version = os.getenv("AZURE_OPENAI_API_VERSION")
+
+
+# %%
+llm=AzureChatOpenAI(
+    api_key=credential,
+    api_version=api_version,
+    azure_deployment=deployment_name,
+    azure_endpoint=endpoint,
+)
+
+# %%
+def router(state: State):
+    last_message = state["messages"][-1]
+    if isinstance(last_message, AIMessage) and getattr(last_message, 'tool_calls', None):
+        return "tools"
+    if isinstance(last_message, AIMessage) and last_message.content:
+        content = last_message.content
+        if 'Continue' in content:
+            return "tools"
+        elif "End" in content:
+            return "End"
+    return "End"
+
+# %%
+PHOENIX_API_KEY = os.getenv("PHOENIX_API_KEY")
+phoenix_endpoint = os.getenv("PHOENIX_ENDPOINT")
+
+os.environ["PHOENIX_COLLECTOR_ENDPOINT"] = phoenix_endpoint
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = phoenix_endpoint
+os.environ["PHOENIX_API_KEY"] = PHOENIX_API_KEY
+
+# %%
+tracer_provider = register(project_name="test_me3", auto_instrument=False)
+
+#LangChainInstrumentor(tracer_provider=tracer_provider).instrument(skip_dep_check=True)
+
+# %%
+def load_prompt() -> str:
+    client = Client(base_url=phoenix_endpoint, api_key=PHOENIX_API_KEY)
+    # prompt = client.prompts.get(prompt_version_id="UHJvbXB0VmVyc2lvbjozMA==")  --version id for chroma db 
+#     prompt = client.prompts.get(prompt_version_id="UHJvbXB0VmVyc2lvbjozNg==")  # version id for pgvector retrieval mcp
+    prompt = client.prompts.get(prompt_version_id="UHJvbXB0VmVyc2lvbjozNw==")
+
+    prompt_set = prompt._template["messages"]
+    prompt_msg = next(
+            (item["content"][0]["text"] for item in prompt_set if item.get("role") == "system"),
+            None
+        )
+    if prompt_msg and isinstance(prompt_msg, str) and len(prompt_msg) > 0:
+            system_msg = prompt_msg
+    else:
+            raise ValueError(f"Error: 'prompt_msg' is empty or improperly structured:{prompt_msg}")
+    return system_msg
+
+# %%
+load_prompt()
+
+# %%
+def create_custom_graph(model, tools, prompt, checkpointer=None):
+    graph_builder = StateGraph(State)
+    llm_with_tools = model.bind_tools(tools)
+
+    async def agent_node(state: State):
+        try:
+        
+            messages = state["messages"]
+            system_prompt = SystemMessage(content=prompt)
+            all_messages = [system_prompt] + messages
+            message = await llm_with_tools.ainvoke(all_messages)
+            return {"messages": [message]}
+
+        except Exception as e:
+            print(f"Error in agent_node: {e}")
+            return {
+                "messages": [AIMessage(content=f"Error: {e}")]
+                }
+
+    graph_builder.add_node("agent", agent_node)
+    graph_builder.add_node("tools", ToolNode(tools=tools))
+    graph_builder.add_edge(START, "agent")
+    graph_builder.add_conditional_edges(
+        "agent",
+        router,
+        {
+            "tools": "tools",
+            "End": END
+        }
+    )
+    graph_builder.add_edge("tools", "agent")
+
+    return graph_builder.compile(checkpointer=checkpointer) if checkpointer else graph_builder.compile()
+
+# %%
+import asyncio
+
+async def get_tool_list(config_mcp_server):
+    client = MultiServerMCPClient(config_mcp_server)
+    tools_list = await client.get_tools()
+    print("Tools fetched from MCP:", [tool.name for tool in tools_list])
+    return tools_list
+
+# %%
+tools = asyncio.run(get_tool_list(config_mcp_server=config_mcp_server))
+
+        
+
+# %%
+for tool in tools:
+    tool.handle_tool_error = True
+
+# %%
+
+    # Setup Azure OpenAI model
+endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+credential = os.getenv("AZURE_OPENAI_API_KEY")
+deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+api_version = os.getenv("AZURE_OPENAI_API_VERSION")
+
+model = AzureChatOpenAI(
+    api_key=credential,
+    api_version=api_version,  # fill if needed
+    azure_deployment=deployment_name,
+    azure_endpoint=endpoint,
+)
+
+# Load system prompt
+SYSTEM_INSTRUCTION = load_prompt()   # used for fetching prompt from phoenix
+
+# Create the graph
+graph = create_custom_graph(model=model, tools=tools, prompt=SYSTEM_INSTRUCTION)
+
+# %%
+# from graph_execution_logger import GraphExecutionLogger
+
+# %%
+# """
+# Streams output to user AND logs graph execution to file
+# """
+# # Setup logger
+# logger_manager = GraphExecutionLogger(log_dir="graph_logs")
+# logger, log_filepath, exec_id = logger_manager.create_logger()
+
+# logger.info("Initial State: {'messages': ['Start your task']}")
+# logger.info("Config: {'recursion_limit': 50}")
+# logger.info("-"*100)
+# logger.info("STARTING GRAPH EXECUTION WITH STREAMING")
+# logger.info("-"*100)
+
+# stats = {
+#     "total_nodes": 0,
+#     "node_visits": {},
+#     "routing": [],
+#     "start_time": __import__('datetime').datetime.now()
+# }
+
+# %%
+# await graph.ainvoke({"messages": ["Start your task"]}, config={"recursion_limit": 25})
+
+# %%
+
+
+async def stream():
+        async for chunk in graph.astream({"messages": ["Start your task"]}, config={"recursion_limit": 50}, stream_mode="values"):
+            if "agent" in chunk:
+                messages = chunk["agent"]["messages"]
+                for msg in messages:
+                    if hasattr(msg, "content") and msg.content:
+                        # Yield SSE formatted string
+                        yield f"data: {msg.content}\n\n"
+            if "tools" in chunk:
+                messages = chunk["tools"]["messages"]
+                for msg in messages:
+                    if hasattr(msg, "content") and msg.content:
+                        yield f"data: [Tool:{msg.name}] {msg.content}\n\n"
+
+# %%
+# Run the stream and print output
+async def main():
+    print("\n" + "="*60)
+    print("🚀 Starting Graph Execution Stream")
+    print("="*60 + "\n")
+    async for event in stream():
+        if event.startswith("data: "):
+            print(event[6:].strip())
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+
+

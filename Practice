@@ -335,3 +335,23 @@ if __name__ == "__main__":
 
 
 
+(trial-venv) Jarvis@JarvisPhase2:~/Chinmay/JarvisAgent_2.0/Jarvis/EmailIntentAgent$ python3 testserver.py
+🔭 OpenTelemetry Tracing Details 🔭
+|  Phoenix Project: test_me3
+|  Span Processor: SimpleSpanProcessor
+|  Collector Endpoint: phoenix-app-1772100950.eastus.azurecontainer.io:4317
+|  Transport: gRPC
+|  Transport Headers: {'authorization': '****', 'user-agent': '****'}
+|  
+|  Using a default SpanProcessor. `add_span_processor` will overwrite this default.
+|  
+|  ⚠️ WARNING: It is strongly advised to use a BatchSpanProcessor in production environments.
+|  
+|  `register` has set this TracerProvider as the global OpenTelemetry default.
+|  To disable this behavior, call `register` with `set_global_tracer_provider=False`.
+
+Tools fetched from MCP: ['email_reader_mcp', 'attachment_checker_mcp', 'email_attachment_mcp', 'document_extract_mcp', 'layout_detection_mcp', 'pdf_vectorizer_mcp', 'retriever_mcp', 'email_processed_mcp', 'risk_type_checker_mcp', 'renewal_checker_mcp', 'Licensing_and_Sanction_Checker_MCP', 'risk_score_calculator_mcp', 'Json_Reader_Read', 'accept_reject_risk_functionality_mcp', 'attachment_summary_mcp', 'query_pdf_vectorizer_mcp', 'query_retriever_mcp', 'write_email_to_excel', 'guidewire_quote_mcp', 'email_draft_mcp', 'Quote_Generator_MCP', 'guidewire_bind_and_issue_mcp', 'peril_data_capture_mcp', 'pgvector_mcp']
+
+
+
+

@@ -1,189 +1,89 @@
-{
-  "Policy Information": {
-    "Named Insured": "Azul Biscayne Resort & Spa, LLC",
-    "DBA / Trade Name": "Azul Biscayne Resort & Spa",
-    "Policy Period": "April 1, 2021 - March 31, 2026",
-    "Inflation Guard": "4% annual indexing applied per appraisal recommendation",
-    "BI Indemnity Period": "24 Months (Extended Period of Indemnity) — selected in recognition of Miami-Dade's active construction market and the realistic timeline for full high-rise concrete reconstruction following a major property loss. The county building permitting process for structures of this scale and occupancy type typically adds 4-6 months to the physical reconstruction period. Current market construction lead times for reinforced concrete high-rise hotel construction in South Florida are estimated at 20-26 months for a structure of this type.",
-    "Total BI / Extra Expense Limit": "$32,000,000"
-  },
-  "Broker Information": {
-    "Requesting Broker": "Harbor Point Commercial Insurance Brokers, LLC - Caroline M. Dupree, CPCU, ARM",
-    "Broker Address": "801 Brickell Avenue, Suite 1400, Miami, FL 33131",
-    "Broker License": "L040892",
-    "SOV Prepared By": "Harbor Point Commercial Insurance Brokers, LLC on behalf of Insured",
-    "Certification Signatory": "Caroline M. Dupree, CPCU, ARM - Senior Vice President, Commercial Lines"
-  },
-  "Property Identification": {
-    "Full Address": {
-      "LOC 001": "2900 Biscayne Boulevard, Miami, FL 33137",
-      "LOC 002": "2900 Biscayne Boulevard, Miami, FL 33137",
-      "LOC 003": "2900 Biscayne Boulevard, Miami, FL 33137",
-      "LOC 004": "2900 Biscayne Boulevard, Miami, FL 33137"
-    },
-    "Property Address": "2900 Biscayne Boulevard, Miami, FL 33137",
-    "Location Number": {
-      "LOC 001": "001",
-      "LOC 002": "002",
-      "LOC 003": "003",
-      "LOC 004": "004"
-    }
-  },
-  "Valuation & Limits": {
-    "SOV Date": "March 18, 2026",
-    "Appraisal Date": "February 12, 2026",
-    "Appraisal Provider": "Rimkus Consulting Group, Inc. (Miami, FL) - Thomas R. Brinkley, PE, RPA",
-    "Valuation Basis": "Full Replacement Cost Value (RCV) - Rimkus Consulting Group / Marshall & Swift Boeckh Appraisal; RICS-compliant methodology",
-    "Building RCV": {
-      "LOC 001": "$128,500,000 ($312/sq. ft.)",
-      "LOC 002": "$14,200,000 ($444/sq. ft.)",
-      "LOC 003": "$11,800,000 ($37/sq. ft.)",
-      "LOC 004": "$2,100,000 ($339/sq. ft.)"
-    },
-    "Total Building RCV": "$156,600,000",
-    "BPP / Contents Value": {
-      "LOC 001": "$9,200,000 - FF&E, Guest Room Furnishings, PMS/IT Systems, F&B Equipment, Spa Equipment, Artwork",
-      "LOC 002": "$1,800,000 - AV/Event Equipment, Banquet Furniture & Fixtures, Kitchen Equipment, Staging",
-      "LOC 003": "$400,000",
-      "LOC 004": "$350,000"
-    },
-    "Total BPP / Contents": "$11,750,000",
-    "Grand Total TIV": "$200,350,000",
-    "ITV Status": {
-      "LOC 001": "100% - Full Replacement Cost Confirmed; Renovation Scope Captured in Current Appraisal",
-      "LOC 002": "100% - Full Replacement Cost Confirmed",
-      "LOC 003": "100% - Full Replacement Cost Confirmed",
-      "LOC 004": null
-    }
-  },
-  "Construction & Renovation": {
-    "Year Built / Renovated": {
-      "LOC 001": "Year Built 2008; Last Major Renovation 2023 - $31.5M Comprehensive Renovation (All Guestrooms, Lobby, F&B, Spa, HVAC, Electrical, Plumbing, Roof)",
-      "LOC 002": "Year Built 2008; Last Major Renovation 2023 - Included in $31.5M Renovation Scope (AV/IT Systems, Finishes, HVAC, Lighting)",
-      "LOC 003": "Year Built 2008; Last Major Renovation 2023 - Flashing Fully Replaced (Open-Air Structure)",
-      "LOC 004": "Year Built 2008; Last Major Renovation 2023 - Cabana Reconstruction; Deck Resurfacing; Pool Equipment Replacement"
-    },
-    "Renovation Scope": {
-      "LOC 001": "2023 - $31.5M comprehensive renovation. Fully documented Renovation Scope: All guestrooms, lobby, F&B outlets, spa, HVAC, electrical, plumbing, roof.",
-      "LOC 002": "2023 - Included in $31.5M Renovation Scope (AV/IT Systems, Finishes, HVAC, Lighting). Roof Type Flat / TPO Membrane - Replaced 2023.",
-      "LOC 003": null,
-      "LOC 004": "Flashing Fully Replaced 2023 Renovation. 2023."
-    },
-    "Construction Type": {
-      "LOC 001": "Fire Resistive (Concrete / Steel) ISO Class 6",
-      "LOC 002": "Fire Resistive ISO Class 6",
-      "LOC 003": "Non-Combustible - Light Steel Frame (ISO Class 3)",
-      "LOC 004": "Non-Combustible (Light Steel) ISO Class 3"
-    },
-    "Roof Type & Age": {
-      "LOC 001": "Flat / TPO (Thermoplastic Polyolefin Membrane); Roof Age 3 Years (replaced 2023) 20-yr warranty",
-      "LOC 002": null,
-      "LOC 003": "Non-Combustible (Light Steel Frame, Class 3) - Flashing Fully Replaced 2023 Renovation 2023",
-      "LOC 004": "TPO Roof Membrane Mechanically Attached; Enhanced Edge Metal; HVHZ Wind Uplift Rated; Fully replaced 2023"
-    }
-  },
-  "Occupancy & Use": {
-    "Occupancy Type": {
-      "LOC 001": "Hospitality / Full-Service Luxury Hotel - ISO Code 66121; NAICS 721110",
-      "LOC 002": null,
-      "LOC 003": null,
-      "LOC 004": null
-    },
-    "Location Description / Occupancy": {
-      "LOC 001": "Hospitality / Full-Service Luxury Hotel - ISO Code 66121; 388 Guest Rooms & Suites across 19 Floors; 3 F&B Outlets; 9,800 SF Destination Spa; 3,000 SF Fitness Center; Rooftop Infinity Pool",
-      "LOC 002": "Conference / Event Center - 32,000 SF; 18 Meeting Rooms; 600-Person Grand Ballroom Capacity",
-      "LOC 003": "Parking Garage - 6-Level Structured Parking; 520 Spaces; Attached to Main Tower",
-      "LOC 004": "Rooftop Pool & Cabana - Open-Air; No Critical MEP Below Grade"
-    },
-    "Number of Guest Rooms": {
-      "LOC 001": "388 (including 42 suites)",
-      "LOC 002": null,
-      "LOC 003": null,
-      "LOC 004": null
-    },
-    "F&B Outlets": "3 (Marea Rooftop Bar, Sal Restaurant, La Palma Café)",
-    "Spa & Fitness Area": {
-      "LOC 001": "9,800 sq. ft. full-service spa; 3,000 sq. ft. fitness center",
-      "LOC 002": null,
-      "LOC 003": null,
-      "LOC 004": null
-    },
-    "Parking Capacity": {
-      "LOC 001": null,
-      "LOC 002": null,
-      "LOC 003": "520 spaces; 6 levels; Valet & Self-Park Operations",
-      "LOC 004": null
-    }
-  },
-  "Protection & Safety": {
-    "Fire Alarm": {
-      "LOC 001": "Fire Alarm System UL-Listed Central Station Monitored; Monitoring Provider SimplexGrinnell (ADT commercial division) - 24/7 UL-certified central station; direct fire department notification protocol in effect; Alarm Last Tested October 2025 - semi-annual test; no deficiencies",
-      "LOC 002": null,
-      "LOC 003": null,
-      "LOC 004": null
-    },
-    "Sprinkler System": {
-      "Main Hotel Tower": "NFPA 13 Wet Pipe - 100% coverage; all guestroom floors, corridors, back-of-house, kitchen, conference center, garage, and spa - no unsprinklered areas; Sprinkler Vintage Original 2008 installation; heads replaced 2023 renovation as part of MEP upgrade; Last Sprinkler Inspection October 2025 - Annual wet pipe test; performed by SimplexGrinnell / Johnson Controls - no deficiencies noted",
-      "Rooftop Pool Deck & Cabana Structures": "Sprinkler / Suppression Not Required - Open-Air Rooftop Deck; Fire Extinguishers Positioned per Code",
-      "Parking Garage": "Dry Standpipe System per NFPA; Portable Extinguishers Throughout; Open-Air Design Limits Sprinkler Requirement"
-    },
-    "Fire Protection (Non-Sprinkler)": {
-      "LOC 001": null,
-      "LOC 002": null,
-      "LOC 003": "Dry Standpipe System per NFPA; Portable Extinguishers Throughout; Open-Air Design Limits Sprinkler Requirement",
-      "LOC 004": "Sprinkler / Suppression Not Required - Open-Air Rooftop Deck; Fire Extinguishers Positioned per Code"
-    },
-    "Security System": "88-camera IP-based digital CCTV system; 120-day cloud-based storage; all entry/exit points, garage levels, and common areas covered. Three uniformed guards on duty 24/7 (peak hours: 4 guards); guards are licensed Florida security officers; background-checked annually. Hotel-grade key card access at all guestroom floors, back-of-house corridors, server rooms, and mechanical areas.",
-    "Backup Power": "650 kW Caterpillar diesel standby generator; 10-day fuel supply on-site; automatic transfer switch; tested monthly under load"
-  },
-  "Hazard Zones & Exposures": {
-    "Wind Zone": {
-      "LOC 001": "Wind Zone Zone 4 (High-Velocity Hurricane Zone - South Florida); Florida Wind Code HVHZ - Miami-Dade / Broward County High Velocity Hurricane Zone requirements apply; Design Wind Speed 175 mph (ASCE 7-16 / 2023 FBC - 3-second peak gust at 33 ft AGL); Impact-resistant glazing throughout (PGT Winguard system); Miami-Dade NOA certified; installed 2008 and recertified 2023",
-      "LOC 004": "Wind Zone HVHZ - Rooftop Exposure; TPO Roof Membrane Mechanically Attached; Enhanced Edge Metal; HVHZ Wind Uplift Rated"
-    },
-    "FEMA Flood Zone": {
-      "LOC 001": "Zone AE/A - BFE 8.0 ft NAVD88; FFE 11.2 ft NAVD88 (3.2 ft above BFE); Elevation Certificate on File; Flood Mitigation: Below-grade parking garage has flood barriers (FloodBreak passive barriers rated for 3 ft inundation); no critical MEP equipment below grade",
-      "LOC 002": "Zone AE/A - Flood Barriers Installed; Below-Grade Area Protected",
-      "LOC 003": "Zone AE/A - Flood Barriers Installed; Below-Grade Area Protected; FloodBreak Passive Flood Barriers at All Vehicle Entries (Rated 3 ft Inundation); No Critical MEP Below Grade",
-      "LOC 004": "Zone AE/A - Rooftop Location; No Flood Exposure at This Level"
-    },
-    "Seismic Zone": {
-      "LOC 001": "USGS Seismic Zone A - Very Low Hazard Earthquake PML (% TIV) < 5%",
-      "LOC 002": null,
-      "LOC 003": null
-    }
-  },
-  "Financial & Revenue": {
-    "Annual Gross Revenue": {
-      "2023": "$34, 100,000",
-      "2024": "$38,700,000",
-      "2025": "$41,300,000"
-    },
-    "Occupancy Rate": "74% Average (TTM December 2025); ~ 104,000 Room Nights (2025)",
-    "Average Daily Rate (ADR)": {
-      "LOC 001": "$389",
-      "LOC 002": "$389",
-      "LOC 003": "$389",
-      "LOC 004": "$389"
-    },
-    "Mortgage / Lienholder": "Truist Commercial Real Estate - First Mortgage Lien; DSCR 1.38x (2025)"
-  },
-  "Loss History": {
-    "Prior Loss Note": {
-      "Main Hotel Tower - 8th Floor Guest Corridor": "June 14, 2022 water damage loss ($41,800) due to domestic supply line compression fitting failure; remediation included water extraction, structural drying, drywall replacement; claim closed, no litigation, no ongoing exposure.",
-      "Pool Deck Cabana Structures": "September 2023 wind-driven rain loss ($30,600) at this location; flashing deficiency fully remediated in 2023 renovation - loss is closed with no ongoing exposure"
-    }
-  }
-}
+
+
+
+def get_value_anywhere(data, target_key):
+    """
+    Find a key anywhere in nested dict/list JSON.
+    Returns first match or None.
+    """
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == target_key:
+                return value
+            found = get_value_anywhere(value, target_key)
+            if found is not None:
+                return found
+
+    elif isinstance(data, list):
+        for item in data:
+            found = get_value_anywhere(item, target_key)
+            if found is not None:
+                return found
+
+    return None
+
+
+def map_document_to_model_data(doc: dict) -> QuoteData:
+    # Get values from anywhere in JSON
+    company_name = get_value_anywhere(doc, "Named Insured (Company Name)") or get_value_anywhere(doc, "Broker Company")
+    organization_type = get_value_anywhere(doc, "Organization Type")
+
+    address_line1 = get_value_anywhere(doc, "Address Line 1")
+    city = get_value_anywhere(doc, "City")
+    full_state_name = get_value_anywhere(doc, "State")
+    postal_code = get_value_anywhere(doc, "Zip Code")
+
+    date_str = get_value_anywhere(doc, "Effective Date")
+
+    # Convert the date string to desired format, with error handling
+    # if date_str:
+    #     try:
+    #         date_obj = datetime.strptime(date_str, "%d/%m/%Y")
+    #         job_effective_date = date_obj.strftime("%Y-%m-%d")
+    #     except ValueError:
+    #         job_effective_date = None
+    # else:
+    #     job_effective_date = None
+
+        # Convert the date string to desired format, with error handling
+    if date_str:
+        try:
+            # Handle formats like "01-01-2026" or "01/01/2026"
+            if "-" in date_str:
+                date_obj = datetime.strptime(date_str, "%m-%d-%Y")
+            else:
+                date_obj = datetime.strptime(date_str, "%m/%d/%Y")
+            job_effective_date = date_obj.strftime("%Y-%m-%d")
+        except ValueError:
+            job_effective_date = None
+    else:
+        job_effective_date = None
+
+    # Lookup state abbreviation
+    state_abbreviation = us_states_abbreviations.get(
+        full_state_name, full_state_name
+    )
+
+    return QuoteData(
+        company_name=company_name,
+        organization_type=organization_type,
+
+        address_line1=address_line1,
+        city=city,
+        state=state_abbreviation,
+        postal_code=postal_code,
+
+        # Fixed producer code as per business rule
+        producer_code="pc:6",
+
+        job_effective_date=job_effective_date
+    )
 
 
 
 
+so i think currently for effective date it is expecting this format as input right?
+MM-DD-YYYY or MM/DD/YYYY
 
-
-
-
-
-
-
-
+but it should expect 
+DD-MM-YYYY format and the output format that it is giving is correct so just change the input format that it is expecting

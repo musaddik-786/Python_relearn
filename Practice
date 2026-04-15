@@ -1,89 +1,65 @@
+here we were directly reading from pdf frmom input path but now i have been told to read from text file i mean 
+this was my earlier code 
+    try:
+        with open(input_path, "wb") as wf:
+            wf.write(pdf_bytes)
+    except Exception as e:
+        return {"status": False, "error": f"Failed to write local input file '{input_path}': {e}"}
+
+    print("Connecting to Azure Document Intelligence service...")
+    try:
+        client = DocumentIntelligenceClient(
+            endpoint=endpoint,
+            credential=AzureKeyCredential(key)
+        )
+    except Exception as e:
+        return {"status": False, "error": f"Failed to create DocumentIntelligenceClient: {e}"}
+
+    print(f"Analyzing '{source_file_name}' using model '{model_id}'...")
+    try:
+        with open(input_path, "rb") as f:
+            poller = client.begin_analyze_document(model_id=model_id, body=f)
+            result = poller.result()
+    except Exception as e:
+        return {"status": False, "error": f"Error during document analysis: {e}"}
 
 
+this is my new function 
 
-def get_value_anywhere(data, target_key):
+async def read_text_file_from_container(filename: str, container: str) -> str:
     """
-    Find a key anywhere in nested dict/list JSON.
-    Returns first match or None.
+    Reads the contents of a .txt file from the Azure Blob container Data_Raw_Text_Container_Name
+    corresponding to the provided filename (without extension).
+    Returns the text content of the file.
     """
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if key == target_key:
-                return value
-            found = get_value_anywhere(value, target_key)
-            if found is not None:
-                return found
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
 
-    elif isinstance(data, list):
-        for item in data:
-            found = get_value_anywhere(item, target_key)
-            if found is not None:
-                return found
+    # filename_without_ext = os.path.splitext(filename)[0]
+    # blob_name = filename + ".txt"
 
-    return None
+    # filename_without_ext = os.path.splitext(filename)[0]
+    # blob_name = filename_without_ext + ".txt"
 
-
-def map_document_to_model_data(doc: dict) -> QuoteData:
-    # Get values from anywhere in JSON
-    company_name = get_value_anywhere(doc, "Named Insured (Company Name)") or get_value_anywhere(doc, "Broker Company")
-    organization_type = get_value_anywhere(doc, "Organization Type")
-
-    address_line1 = get_value_anywhere(doc, "Address Line 1")
-    city = get_value_anywhere(doc, "City")
-    full_state_name = get_value_anywhere(doc, "State")
-    postal_code = get_value_anywhere(doc, "Zip Code")
-
-    date_str = get_value_anywhere(doc, "Effective Date")
-
-    # Convert the date string to desired format, with error handling
-    # if date_str:
-    #     try:
-    #         date_obj = datetime.strptime(date_str, "%d/%m/%Y")
-    #         job_effective_date = date_obj.strftime("%Y-%m-%d")
-    #     except ValueError:
-    #         job_effective_date = None
-    # else:
-    #     job_effective_date = None
-
-        # Convert the date string to desired format, with error handling
-    if date_str:
-        try:
-            # Handle formats like "01-01-2026" or "01/01/2026"
-            if "-" in date_str:
-                date_obj = datetime.strptime(date_str, "%m-%d-%Y")
-            else:
-                date_obj = datetime.strptime(date_str, "%m/%d/%Y")
-            job_effective_date = date_obj.strftime("%Y-%m-%d")
-        except ValueError:
-            job_effective_date = None
+    if filename.endswith(".txt"):
+        blob_name = filename
     else:
-        job_effective_date = None
+        blob_name = filename + ".txt"
 
-    # Lookup state abbreviation
-    state_abbreviation = us_states_abbreviations.get(
-        full_state_name, full_state_name
-    )
+    # blob_name = filename
 
-    return QuoteData(
-        company_name=company_name,
-        organization_type=organization_type,
+    async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as service:
+        container_client = service.get_container_client(container)
+        blob_client = container_client.get_blob_client(blob_name)
+        try:
+            await blob_client.get_blob_properties()
+        except ResourceNotFoundError:
+            raise FileNotFoundError(f"Blob not found in container '{Data_Raw_Text_Container_Name}': {blob_name}")
 
-        address_line1=address_line1,
-        city=city,
-        state=state_abbreviation,
-        postal_code=postal_code,
+        downloader = await blob_client.download_blob()
+        data = await downloader.readall()
+        return data.decode("utf-8")
 
-        # Fixed producer code as per business rule
-        producer_code="pc:6",
-
-        job_effective_date=job_effective_date
-    )
-
-
-
-
-so i think currently for effective date it is expecting this format as input right?
-MM-DD-YYYY or MM/DD/YYYY
-
-but it should expect 
-DD-MM-YYYY format and the output format that it is giving is correct so just change the input format that it is expecting
+i want this data variable to be changed in such a way that
+It should be given to this funciton as input
+            poller = client.begin_analyze_document(model_id=model_id, body=f)

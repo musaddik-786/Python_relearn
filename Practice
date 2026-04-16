@@ -1,5 +1,113 @@
-here we were directly reading from pdf frmom input path but now i have been told to read from text file i mean 
-this was my earlier code 
+
+import os
+import json
+import uuid
+import re
+from datetime import datetime
+from dotenv import load_dotenv
+import os
+from azure.core.credentials import AzureKeyCredential
+from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.storage.blob.aio import BlobServiceClient
+from azure.core.exceptions import ResourceNotFoundError
+
+from .service import _require_env, get_env_values, AZURE_STORAGE_CONNECTION_STRING, _parse_blob_url, database_filler, read_text_file_from_container
+from .final_processor import process_azure_output  # Importing the final processor function
+
+load_dotenv()
+
+
+def collect_total_confidences(obj, out_list):
+    """
+    Recursively search obj (dict/list) and append any numeric values found under
+    keys named 'total_confidence' to out_list.
+    """
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == "total_confidence":
+                # Accept ints/floats only
+                try:
+                    # If it's already numeric (int/float), use directly; else try to convert
+                    if isinstance(v, (int, float)):
+                        out_list.append(float(v))
+                    else:
+                        out_list.append(float(v))
+                except Exception:
+                    # ignore non-convertible values
+                    pass
+            else:
+                collect_total_confidences(v, out_list)
+    elif isinstance(obj, list):
+        for item in obj:
+            collect_total_confidences(item, out_list)
+    # other types ignored
+
+
+async def analyze_file_async(bloburl: str, Document_Type: str) -> dict:
+    """
+    Download the PDF from bloburl, analyze it with Azure Document Intelligence,
+    save the JSON locally inside ./output/output.json,
+    read the JSON from the file, process it with final_processor.py,
+    compute Document_Confidence_Score and append it to the final JSON,
+    and upload the final JSON to Azure Blob Storage.
+
+    The uploaded final JSON filename will be in this format:
+      <Reference>_attachment_<OriginalFileNameWithoutExtension>_extraction_<YYYYMMDD_HHMMSS>.json
+    """
+
+    try:
+        _require_env()
+    except Exception as e:
+        return {"status": False, "error": str(e)}
+
+    endpoint, key, model_id = get_env_values()
+
+    try:
+        src_container, src_blob = _parse_blob_url(bloburl)
+    except Exception as e:
+        return {"status": False, "error": f"Invalid BlobUrl: {e}"}
+
+    source_file_name = os.path.basename(src_blob) if src_blob else "unknown.pdf"
+    source_file_name = os.path.basename(source_file_name)
+
+    print("Source file name", source_file_name)
+
+
+
+
+    # source_file_name = os.path.splitext(os.path.basename(src_blob or "unknown.pdf"))[0]
+    # print("Source file name", source_file_name)
+    # print("src container", src_container)
+
+    # try:
+    #     txt_bytes = await read_text_file_from_container(source_file_name,src_container)
+
+    # except Exception as e:
+    #     return {"status": False, "error": f"Error downloading PDF from Blob Storage: {e}"}
+
+
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        return {"status": False, "error": "Missing AZURE_STORAGE_CONNECTION_STRING in .env"}
+
+    try:
+        async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as blob_service:
+            container_client = blob_service.get_container_client(src_container)
+            blob_client = container_client.get_blob_client(src_blob)
+            try:
+                await blob_client.get_blob_properties()
+            except ResourceNotFoundError:
+                return {"status": False, "error": f"PDF blob not found: container='{src_container}', blob='{src_blob}'"}
+
+            stream = await blob_client.download_blob()
+            pdf_bytes = await stream.readall()
+    except Exception as e:
+        return {"status": False, "error": f"Error downloading PDF from Blob Storage: {e}"}
+
+    input_dir = os.path.join(os.getcwd(), "input")
+    os.makedirs(input_dir, exist_ok=True)
+
+    input_path = os.path.join(input_dir, source_file_name)
+
     try:
         with open(input_path, "wb") as wf:
             wf.write(pdf_bytes)
@@ -23,43 +131,180 @@ this was my earlier code
     except Exception as e:
         return {"status": False, "error": f"Error during document analysis: {e}"}
 
+    output_dir = os.path.join(os.getcwd(), "output")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, "output.json")
 
-this is my new function 
+    # Save the raw JSON to output.json
+    json_data = result.as_dict()
+    try:
+        with open(output_path, "w", encoding="utf-8") as wf:
+            json.dump(json_data, wf, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return {"status": False, "error": f"Failed to save local output.json: {e}"}
 
-async def read_text_file_from_container(filename: str, container: str) -> str:
-    """
-    Reads the contents of a .txt file from the Azure Blob container Data_Raw_Text_Container_Name
-    corresponding to the provided filename (without extension).
-    Returns the text content of the file.
-    """
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
+    # Read the JSON from output.json and process it using final_processor.py
+    try:
+        with open(output_path, "r", encoding="utf-8") as rf:
+            raw_json = json.load(rf)  # Load JSON from the file
+        final_output = process_azure_output(raw_json)  # Process the JSON
 
-    # filename_without_ext = os.path.splitext(filename)[0]
-    # blob_name = filename + ".txt"
+    #     # -------------------------
+    #     # Compute Document_Confidence_Score (average of all total_confidence)
+    #     # -------------------------
+    #     confidences = []
+    #     collect_total_confidences(final_output, confidences)
 
-    # filename_without_ext = os.path.splitext(filename)[0]
-    # blob_name = filename_without_ext + ".txt"
+    #     if confidences:
+    #         avg = sum(confidences) / len(confidences)
+    #         avg_rounded = round(avg, 3)
+    #     else:
+    #         # If none found, set to 0.0 (you can change to None if you prefer)
+    #         avg_rounded = 0.0
 
-    if filename.endswith(".txt"):
-        blob_name = filename
-    else:
-        blob_name = filename + ".txt"
+    #     # Add the field at the end of the JSON
+    #     final_output["Document_Confidence_Score"] = avg_rounded
 
-    # blob_name = filename
+        # Save processed final output locally
+        # final_output_path = os.path.join(output_dir, "final_output.json")
+        # with open(final_output_path, "w", encoding="utf-8") as wf:
+        #     json.dump(final_output, wf, indent=2, ensure_ascii=False)
 
-    async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as service:
-        container_client = service.get_container_client(container)
-        blob_client = container_client.get_blob_client(blob_name)
+        # final_output = process_azure_output(raw_json)
+        # -------------------------
+        # Add Document Type HERE
+        # -------------------------
+        # final_output["Document_Type"] = "Acord"
+        # Save processed final output locally
+        final_output_path = os.path.join(output_dir, "final_output.json")
+        with open(final_output_path, "w", encoding="utf-8") as wf:
+            json.dump(final_output, wf, indent=2, ensure_ascii=False)
+
+
+
+    except Exception as e:
+        return {"status": False, "error": f"Failed to process JSON with final_processor.py: {e}"}
+
+    # ------------------------
+    # Build the target blob name in the desired format:
+    # <Reference>_attachment_<OriginalFileNameNoExt>_extraction_<YYYYMMDD_HHMMSS>.json
+    # ------------------------
+
+    base_name_no_ext = os.path.splitext(source_file_name)[0]  # e.g. "19A81973900C46C9_attachment_Acord_125"
+
+    ref_part = None
+    file_part = None
+
+    # Preferred pattern: "<ref>_attachment_<filename>"
+    if "_attachment_" in base_name_no_ext:
         try:
-            await blob_client.get_blob_properties()
-        except ResourceNotFoundError:
-            raise FileNotFoundError(f"Blob not found in container '{Data_Raw_Text_Container_Name}': {blob_name}")
+            ref_part, file_part = base_name_no_ext.split("_attachment_", 1)
+            ref_part = (ref_part or "").strip()
+            file_part = (file_part or "").strip()
+        except Exception:
+            ref_part = None
+            file_part = None
 
-        downloader = await blob_client.download_blob()
-        data = await downloader.readall()
-        return data.decode("utf-8")
+    # Fallback: take first token as ref and rest as filename
+    if not ref_part or not file_part:
+        tokens = base_name_no_ext.split("_", 1)
+        if len(tokens) == 2:
+            ref_part, file_part = tokens[0].strip(), tokens[1].strip()
+        else:
+            # last fallback: use a uuid as reference and keep the whole base as filename
+            ref_part = uuid.uuid4().hex[:16]
+            file_part = base_name_no_ext
 
-i want this data variable to be changed in such a way that
-It should be given to this funciton as input
-            poller = client.begin_analyze_document(model_id=model_id, body=f)
+    # IMPORTANT: Keep underscores in filename exactly as received (Acord_125)
+    # Minimal sanitization: allow only alphanumeric, underscore, and hyphen in both parts
+    ref_part = re.sub(r"[^A-Za-z0-9_-]", "", ref_part)
+    file_part = re.sub(r"[^A-Za-z0-9_-]", "", file_part)
+
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+
+    output_container = "output-results"
+    target_blob_name = f"{ref_part}_attachment_{file_part}_extraction_{timestamp}.json"
+    print(ref_part)
+
+
+    # try:
+
+    # except Exception as e:    
+
+    # try:
+
+    #     # -------------------------
+
+    #     # Add Document Type
+
+    #     # -------------------------
+
+    #     final_output["Document_Type"] = "Acord"
+
+    # except Exception as e:
+
+    #     return {"status": False, "error": f"Failed to add document type: {e}"}
+ 
+
+
+    # ------------------------
+    # Upload the final_output.json to Azure Blob Storage with the new name
+    # ------------------------
+    try:
+        async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as blob_service:
+            out_container_client = blob_service.get_container_client(output_container)
+            try:
+                # create will raise if exists — ignore
+                await out_container_client.create_container()
+            except Exception:
+                pass  # container likely exists; ignore
+
+            out_blob_client = out_container_client.get_blob_client(target_blob_name)
+
+            with open(final_output_path, "rb") as data:
+                await out_blob_client.upload_blob(data, overwrite=True)
+    except Exception as e:
+        return {"status": False, "error": f"Failed to upload final_output.json to output-results: {e}"}
+
+    # Build final URL to return (same style you were using)
+    parsed = bloburl.split("://", 1)[-1]
+    account_and_rest = parsed.split("/", 1)[0]
+    final_output_blob_url = f"https://{account_and_rest}/{output_container}/{target_blob_name}"
+
+    print(f"Final JSON saved locally and uploaded to: {final_output_blob_url}")
+
+    
+    try:
+        database_filler(ref_part, Document_Type, final_output_blob_url)
+
+    except Exception as e:
+        return {"status": False, "error": f"Failed to process JSON with final_processor.py: {e}"}
+
+
+    return {
+        "source_file": source_file_name,
+        "final_output_blob_url": final_output_blob_url,
+        "Document_Confidence_Score": final_output.get("Document_Confidence_Score") #added this line 
+    }
+
+
+async def process_input_folder_on_startup() -> None:
+    """Background startup function — checks ./input for any PDFs and logs them."""
+    try:
+        input_dir = os.path.join(os.getcwd(), "input")
+        if not os.path.exists(input_dir):
+            return
+
+        files = [f for f in os.listdir(input_dir) if f.lower().endswith(".pdf")]
+        if not files:
+            return
+
+        for pdf in files:
+            print(f"[startup] Found local PDF in ./input: {pdf} — no automatic processing.")
+    except Exception as e:
+        print(f"[startup] process_input_folder_on_startup error: {e}")
+        return
+
+
+
+

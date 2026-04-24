@@ -36,7 +36,12 @@ Keep your answer concise and relevant to the question."""
 
 
 after using phoenix 
+i removed this 
+    qa_prompt = PromptTemplate(
+        input_variables=["context", "question"],
+        template="""You are an expert assistant for answering questions about documents.
 
+and below once is what was present
 
     
     prompt_text = build_prompt(

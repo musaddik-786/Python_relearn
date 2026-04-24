@@ -31,4 +31,93 @@ cant we do something like we did for other tool like this
     input_variables=["context","question"],
     template=prompt_text
     )    
-    
+
+
+btw these are the funtions that we are importing and using
+
+
+phoenix_client = Client(
+
+    base_url=PHOENIX_ENDPOINT,
+
+    api_key=PHOENIX_API_KEY
+
+)
+
+
+@lru_cache
+def get_prompt_template(prompt_version_id:str):
+
+    prompt_stored = phoenix_client.prompts.get(
+
+        prompt_version_id=prompt_version_id
+
+    )
+
+    prompt_messages = prompt_stored._template["messages"]
+
+    system_prompt = next(
+
+        (
+
+            item["content"][0]["text"]
+
+            for item in prompt_messages
+
+            if item.get("role") == "system"
+
+        ),
+
+        None
+
+    )
+
+    if not system_prompt:
+
+        raise ValueError(
+            "Phoenix prompt missing"
+        )
+
+    return system_prompt
+
+
+
+def build_prompt(
+
+    prompt_version_id:str,
+
+    **kwargs
+
+)->str:
+
+    template = get_prompt_template(
+
+        prompt_version_id
+
+    )
+
+    return template.format(
+
+        **kwargs
+
+    )
+
+
+
+
+def get_prompt_template(prompt_version_id:str):
+   prompt_stored = phoenix_client.prompts.get(
+       prompt_version_id=prompt_version_id
+   )
+   prompt_messages = prompt_stored._template["messages"]
+   system_prompt = next(
+       (
+           item["content"][0]["text"]
+           for item in prompt_messages
+           if item.get("role") == "system"
+       ),
+       None
+   )
+   return system_prompt
+
+

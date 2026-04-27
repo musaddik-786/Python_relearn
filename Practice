@@ -1,27 +1,49 @@
-(venv) PS F:\new_omnicore_chat-main\layout_detection> python .\main.py
-Traceback (most recent call last):
-  File "F:\new_omnicore_chat-main\layout_detection\main.py", line 60, in <module>
-    response = client.chat.completions.create(
-        model=deployment_name,
-    ...<4 lines>...
-        max_tokens=50
+import os
+from phoenix.client import Client
+from functools import lru_cache
+
+PHOENIX_API_KEY = os.getenv("PHOENIX_API_KEY")
+PHOENIX_ENDPOINT = os.getenv("PHOENIX_ENDPOINT")
+
+
+@lru_cache
+def load_prompt_template(prompt_version_id: str) -> str:
+    client = Client(
+        base_url=PHOENIX_ENDPOINT,
+        api_key=PHOENIX_API_KEY
     )
-  File "F:\new_omnicore_chat-main\venv\Lib\site-packages\openai\_utils\_utils.py", line 287, in wrapper
-    return func(*args, **kwargs)
-  File "F:\new_omnicore_chat-main\venv\Lib\site-packages\openai\resources\chat\completions\completions.py", line 1211, in create
-    return self._post(
-           ~~~~~~~~~~^
-        "/chat/completions",
-        ^^^^^^^^^^^^^^^^^^^^
-    ...<47 lines>...
-        stream_cls=Stream[ChatCompletionChunk],
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    prompt = client.prompts.get(prompt_version_id=prompt_version_id)
+
+    messages = prompt._template["messages"]
+
+    system_prompt = next(
+        (
+            item["content"][0]["text"]
+            for item in messages
+            if item.get("role") == "system"
+        ),
+        None
     )
-    ^
-  File "F:\new_omnicore_chat-main\venv\Lib\site-packages\openai\_base_client.py", line 1314, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "F:\new_omnicore_chat-main\venv\Lib\site-packages\openai\_base_client.py", line 1087, in request
-    raise self._make_status_error_from_response(err.response) from None
-openai.PermissionDeniedError: Error code: 403 - {'error': {'code': '403', 'message': 'Access denied due to Virtual Network/Firewall rules.'}}
-(venv) PS F:\new_omnicore_chat-main\layout_detection> 
+
+    if not system_prompt:
+        raise ValueError("Prompt not found")
+
+    return system_prompt
+
+
+def get_langchain_prompt_template(prompt_version_id: str, allowed_vars: set[str]) -> str:
+
+    raw_prompt = load_prompt_template(prompt_version_id)
+
+    # Escape all braces
+    escaped = raw_prompt.replace("{", "{{").replace("}", "}}")
+
+    # Restore only allowed variables
+    for var in allowed_vars:
+        escaped = escaped.replace(
+            "{{" + var + "}}",
+            "{" + var + "}"
+        )
+
+    return escaped

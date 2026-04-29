@@ -1,123 +1,128 @@
-i mean for this part
+I think it was due to true vs True ie for true it was not working but for True it worked
 
-batched_extraction_prompt = PromptTemplate(
-    input_variables=["attributes_bundle"],
-    template="""
-You are an insurance underwriting extraction engine.
 
-For each attribute:
-- Use ONLY the provided context
-- Follow the instruction
-- Do NOT hallucinate
-- Return null if not found
-
-INPUT (JSON):
-{attributes_bundle}
-
-OUTPUT (STRICT JSON ONLY):
-{
-  "attribute_name": value | null
+    payload = {    
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+        "status": True,
+        "results": [
+            {
+                "Extracted Name": "Alex and Jordan Taylor",
+                "is_Sanctioned": False
+            }
+        ],
+        "Data_Filler": [
+            {
+                "reference_number": "176677660000000",
+                "eligibility_status": "Eligible",
+                "reason_summary": "Within sum insured limits and approved risk zone",
+                "line_of_business": "Commercial Property",
+                "location_risk_zone": "Medium",
+                "business_type": "New Business",
+                "licensing_and_sanction_check": "Cleared",
+                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
+                "approval_flag": False,
+                "eligibility_check_date_time": "2026-04-06 13:04:52",
+                "Table_name": "agent_eligibility"
+            }
+        ]
+    }
 }
-"""
 
-cant we do something like we did for other tool like this
+so now for below it is not working it is no
 
-    prompt_text = build_prompt(
-    "UHJvbXB0VmVyc2lvbjoyNA==",
-    context=context,
-    question=user_query
-    )
-    qa_prompt = PromptTemplate(
-    input_variables=["context","question"],
-    template=prompt_text
-    )    
-
-
-btw these are the funtions that we are importing and using
-
-
-phoenix_client = Client(
-
-    base_url=PHOENIX_ENDPOINT,
-
-    api_key=PHOENIX_API_KEY
-
-)
-
-
-@lru_cache
-def get_prompt_template(prompt_version_id:str):
-
-    prompt_stored = phoenix_client.prompts.get(
-
-        prompt_version_id=prompt_version_id
-
-    )
-
-    prompt_messages = prompt_stored._template["messages"]
-
-    system_prompt = next(
-
-        (
-
-            item["content"][0]["text"]
-
-            for item in prompt_messages
-
-            if item.get("role") == "system"
-
-        ),
-
-        None
-
-    )
-
-    if not system_prompt:
-
-        raise ValueError(
-            "Phoenix prompt missing"
-        )
-
-    return system_prompt
-
-
-
-def build_prompt(
-
-    prompt_version_id:str,
-
-    **kwargs
-
-)->str:
-
-    template = get_prompt_template(
-
-        prompt_version_id
-
-    )
-
-    return template.format(
-
-        **kwargs
-
-    )
+    payload = {
+    {
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "is_body_extracted": True,
+      "body": "Dear Team,\r\n\r\nWe are submitting Azul Biscayne Resort & Spa, LLC for your consideration.\r\nThe insured operates in the hospitality sector as a full-service luxury\r\nhotel and seeks coverage for Business Interruption.\r\n\r\nThe policy is proposed for a 12-month term from April 1, 2026 to April 1,\r\n2027. The total insured value stands at $168,350,000, with a Business\r\nInterruption limit of $32,000,000.\r\n\r\nMailing Address:\r\n\r\n2900 Biscayne Boulevard, Miami, FL 33137, USA\r\n\r\nAttached are the follc↓ g documents for your review:\r\nBroker Submission Document\r\n\r\nSchedule of Values (SOV)\r\n\r\nLoss Runs\r\n\r\nPlease confirm receipt and advise if additional details are required.\r\n\r\nBest regards,\r\n\r\nCaroline M. Dupree\r\n\r\nHarbor Point Commercial Insurance Brokers, LLC",
+      "body_bloburl": "https://agenticai1.blob.core.windows.net/attachment-downloader/body_19DD3F7C8BAEA6B1.txt",
+      "error": null,
+      "reference_id": "19DD3F7C8BAEA6B1",
+      "subject": "Apex submission",
+      "sender": "commercialinsurancebrokers <commercialinsurancebrokers57@gmail.com>",
+      "received_date": "Tue, 28 Apr 2026 17:31:50 +0530",
+      "has_attachments": True,
+      "attachments": [
+        {
+          "filename": "apex_loss_run.pdf",
+          "type": "PDF Document"
+        },
+        {
+          "filename": "apex_sov_v2.pdf",
+          "type": "PDF Document"
+        },
+        {
+          "filename": "apex_submission_v2.pdf",
+          "type": "PDF Document"
+        }
+      ],
+      "property_details": {
+        "property_name": "Azul Biscayne Resort & Spa, LLC",
+        "property_address": "2900 Biscayne Boulevard, Miami, FL 33137, USA",
+        "property_type": "hotel",
+        "broker_name": "Caroline M. Dupree",
+        "customer_name": "Azul Biscayne Resort & Spa, LLC"
+      }
+    }
+  ],
+  "Data_Filler": [
+    {
+      "Unique reference Number": "19DD3F7C8BAEA6B1",
+      "Email Subject": "Apex submission",
+      "Email Body": "https://agenticai1.blob.core.windows.net/attachment-downloader/body_19DD3F7C8BAEA6B1.txt",
+      "Sender Email Address": "commercialinsurancebrokers <commercialinsurancebrokers57@gmail.com>",
+      "Date and Time Received": "Tue, 28 Apr 2026 17:31:50 +0530",
+      "Risk Details": "Property: Azul Biscayne Resort & Spa, LLC | Type: hotel | Address: 2900 Biscayne Boulevard, Miami, FL 33137, USA",
+      "Broker/Agent Name": "Caroline M. Dupree",
+      "Customer Name": "Azul Biscayne Resort & Spa, LLC",
+      "Has Attachments": True,
+      "Attachment Count": 3,
+      "Attachments Info": [
+        {
+          "filename": "apex_loss_run.pdf",
+          "type": "PDF Document"
+        },
+        {
+          "filename": "apex_sov_v2.pdf",
+          "type": "PDF Document"
+        },
+        {
+          "filename": "apex_submission_v2.pdf",
+          "type": "PDF Document"
+        }
+      ],
+      "Table_name":"agent_submission_intake"
+    }
+  ]
+}
+}
 
 
+ File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 89, in run_test
+    "error": null,
+             ^^^^
+NameError: name 'null' is not defined
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
+Testing Licensing & Sanction Checker MCP...
+Traceback (most recent call last):
+  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 256, in <module>
+    run_test()
+  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 89, in run_test
+    "error": Null,
+             ^^^^
+NameError: name 'Null' is not defined
+(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
+Testing Licensing & Sanction Checker MCP...
+Traceback (most recent call last):
+  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 256, in <module>
+    run_test()
+  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 89, in run_test
+    "error": NULL,
+             ^^^^
 
-
-def get_prompt_template(prompt_version_id:str):
-   prompt_stored = phoenix_client.prompts.get(
-       prompt_version_id=prompt_version_id
-   )
-   prompt_messages = prompt_stored._template["messages"]
-   system_prompt = next(
-       (
-           item["content"][0]["text"]
-           for item in prompt_messages
-           if item.get("role") == "system"
-       ),
-       None
-   )
-   return system_prompt
-
-
+i tried multiple null words

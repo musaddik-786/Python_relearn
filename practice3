@@ -1,30 +1,288 @@
+Good — now we’ll lock this cleanly and completely.
+You chose Option 1 (one row per reference), so everything below is aligned with that.
+
+No extra fluff — just the exact files you need, updated and consistent.
+
+⸻
+
+✅ 1. db.py
+
+import os
+from sqlmodel import create_engine
+from sqlalchemy.pool import NullPool
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-    payload = {    
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": True,
-        "results": [
-            {
-                "Extracted Name": "Alex and Jordan Taylor",
-                "is_Sanctioned": False
-            }
-        ],
-        "Data_Filler": [
-            {
-                "reference_number": "176677660000000",
-                "eligibility_status": "Eligible",
-                "reason_summary": "Within sum insured limits and approved risk zone",
-                "line_of_business": "Commercial Property",
-                "location_risk_zone": "Medium",
-                "business_type": "New Business",
-                "licensing_and_sanction_check": "Cleared",
-                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-                "approval_flag": False,
-                "eligibility_check_date_time": "2026-04-06 13:04:52",
-                "Table_name": "agent_eligibility"
-            }
-        ]
-    }
+def get_engine():
+    return create_engine(
+        f"postgresql+psycopg://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}"
+        f"@{os.getenv('PGHOST')}:{os.getenv('PGPORT', '5432')}/{os.getenv('PGDATABASE')}",
+        poolclass=NullPool,
+        echo=False
+    )
+
+
+⸻
+
+✅ 2. models.py
+
+from sqlmodel import SQLModel, Field, Column
+from sqlalchemy import Integer, String, TIMESTAMP, Text
+from typing import Optional
+from datetime import datetime
+
+
+class AgentSubmissionIntake(SQLModel, table=True):
+    __tablename__ = "agent_submission_intake"
+
+    id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
+
+    reference_number: str = Field(
+        sa_column=Column(String, nullable=False)
+    )
+
+    submission_summary: Optional[str] = Field(
+        sa_column=Column(Text, nullable=True)
+    )
+
+    document_summary: Optional[str] = Field(
+        sa_column=Column(Text, nullable=True)
+    )
+
+    created_at: Optional[datetime] = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(TIMESTAMP, nullable=False)
+    )
+
+
+⸻
+
+✅ 3. mapper.py
+
+from models import AgentSubmissionIntake
+
+TABLE_MODEL_MAP = {
+    "agent_submission_intake": AgentSubmissionIntake
 }
+
+
+⸻
+
+✅ 4. service.py (NO change except cleaned)
+
+from sqlmodel import Session
+from db import get_engine
+from mapper import TABLE_MODEL_MAP
+from datetime import datetime
+
+
+async def database_filler(result: dict):
+
+    def find_data_filler(obj):
+        if isinstance(obj, dict):
+            if "Data_Filler" in obj:
+                return obj["Data_Filler"]
+            for value in obj.values():
+                found = find_data_filler(value)
+                if found is not None:
+                    return found
+
+        elif isinstance(obj, list):
+            for item in obj:
+                found = find_data_filler(item)
+                if found is not None:
+                    return found
+
+        return None
+
+    data = find_data_filler(result)
+
+    if data is None:
+        raise Exception("Data_Filler missing")
+
+    if not isinstance(data, list):
+        raise Exception("Data_Filler must be list")
+
+    processed = []
+
+    for index, item in enumerate(data):
+        if "Table_name" not in item:
+            raise Exception(f"Row {index} missing Table_name")
+
+        table = item["Table_name"]
+        row = item.copy()
+        row.pop("Table_name")
+
+        processed.append({
+            "table": table,
+            "data": row,
+            "row_number": index
+        })
+
+    return processed
+
+
+def process_database(rows: list):
+    engine = get_engine()
+    inserted = 0
+    errors = []
+
+    with Session(engine) as session:
+        for row in rows:
+            try:
+                table = row["table"]
+                data = row["data"]
+                row_number = row["row_number"]
+
+                if table not in TABLE_MODEL_MAP:
+                    raise Exception(f"Table mapping missing for {table}")
+
+                model = TABLE_MODEL_MAP[table]
+
+                filtered_data = {
+                    k: v for k, v in data.items()
+                    if k in model.model_fields
+                }
+
+                db_row = model(**filtered_data)
+                session.add(db_row)
+                session.commit()
+
+                inserted += 1
+
+            except Exception as e:
+                session.rollback()
+                errors.append({
+                    "row": row_number,
+                    "error": str(e)
+                })
+
+    return {
+        "status": True,
+        "rows_inserted": inserted,
+        "rows_failed": len(errors),
+        "errors": errors
+    }
+
+
+⸻
+
+🔥 5. summary_handler.py (ONLY IMPORTANT CHANGE)
+
+❌ REMOVE THIS COMPLETELY
+
+connect_to_blob(...)
+
+
+⸻
+
+✅ ADD THIS BLOCK (CORE LOGIC)
+
+Place this AFTER:
+
+beautified = beautify_api_response(cleaned_payload)
+
+
+⸻
+
+
+from datetime import datetime
+
+data_filler = []
+
+combined_summary = beautified.get("combined_summary")
+individualized = beautified.get("individualized_summary", [])
+
+# 🔥 GROUP BY reference_number (OPTION 1)
+ref_to_entries = {}
+
+for item in individualized:
+    file_name = item.get("file_name", "")
+    processed = item.get("processed_summary", "")
+
+    if "_" not in file_name:
+        continue
+
+    ref = file_name.split("_")[0]
+
+    entry = f"file_name: {file_name}\nprocessed_summary:\n{processed}"
+    ref_to_entries.setdefault(ref, []).append(entry)
+
+# 🔥 ONE ROW PER REFERENCE
+for ref, entries in ref_to_entries.items():
+
+    document_summary = "\n\n".join(entries)
+
+    row = {
+        "reference_number": ref,
+        "submission_summary": combined_summary,
+        "document_summary": document_summary,
+        "created_at": datetime.utcnow().isoformat(),
+        "Table_name": "agent_submission_intake"
+    }
+
+    data_filler.append(row)
+
+# attach to response
+beautified["Data_Filler"] = data_filler
+
+
+⸻
+
+✅ FINAL RETURN
+
+return beautified
+
+
+⸻
+
+🔥 FINAL RESPONSE STRUCTURE (IMPORTANT)
+
+Now your summary MCP returns:
+
+{
+  "combined_summary": "...",
+  "individualized_summary": [...],
+  "Data_Filler": [
+    {
+      "reference_number": "19DD3F7C8BAEA6B1",
+      "submission_summary": "...",
+      "document_summary": "file_name: doc1...\n\nfile_name: doc2...",
+      "created_at": "2026-04-29T12:00:00",
+      "Table_name": "agent_submission_intake"
+    }
+  ]
+}
+
+
+⸻
+
+🧠 What you achieved
+
+✔ Same behavior as Excel
+✔ One row per submission
+✔ Clean MCP contract
+✔ DB fully decoupled
+✔ No duplicate document rows
+
+⸻
+
+⚠️ Next thing you WILL hit
+
+Right now:
+
+👉 Same reference_number → multiple inserts (duplicates)
+
+Next step (very important):
+	•	UPSERT instead of INSERT
+	•	Avoid duplicates
+	•	Update existing summaries
+
+⸻
+
+If you want, I’ll show you production-grade upsert logic next 👍

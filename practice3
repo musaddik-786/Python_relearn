@@ -1,0 +1,30 @@
+
+
+    payload = {    
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+        "status": True,
+        "results": [
+            {
+                "Extracted Name": "Alex and Jordan Taylor",
+                "is_Sanctioned": False
+            }
+        ],
+        "Data_Filler": [
+            {
+                "reference_number": "176677660000000",
+                "eligibility_status": "Eligible",
+                "reason_summary": "Within sum insured limits and approved risk zone",
+                "line_of_business": "Commercial Property",
+                "location_risk_zone": "Medium",
+                "business_type": "New Business",
+                "licensing_and_sanction_check": "Cleared",
+                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
+                "approval_flag": False,
+                "eligibility_check_date_time": "2026-04-06 13:04:52",
+                "Table_name": "agent_eligibility"
+            }
+        ]
+    }
+}

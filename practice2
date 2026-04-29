@@ -1,128 +1,204 @@
-I think it was due to true vs True ie for true it was not working but for True it worked
 
 
-    payload = {    
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "status": True,
-        "results": [
-            {
-                "Extracted Name": "Alex and Jordan Taylor",
-                "is_Sanctioned": False
-            }
-        ],
-        "Data_Filler": [
-            {
-                "reference_number": "176677660000000",
-                "eligibility_status": "Eligible",
-                "reason_summary": "Within sum insured limits and approved risk zone",
-                "line_of_business": "Commercial Property",
-                "location_risk_zone": "Medium",
-                "business_type": "New Business",
-                "licensing_and_sanction_check": "Cleared",
-                "source_of_check": "OFAC SDN, EU Sanctions, UN Sanctions",
-                "approval_flag": False,
-                "eligibility_check_date_time": "2026-04-06 13:04:52",
-                "Table_name": "agent_eligibility"
-            }
-        ]
-    }
-}
 
-so now for below it is not working it is no
-
-    payload = {
-    {
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": [
-    {
-      "is_body_extracted": True,
-      "body": "Dear Team,\r\n\r\nWe are submitting Azul Biscayne Resort & Spa, LLC for your consideration.\r\nThe insured operates in the hospitality sector as a full-service luxury\r\nhotel and seeks coverage for Business Interruption.\r\n\r\nThe policy is proposed for a 12-month term from April 1, 2026 to April 1,\r\n2027. The total insured value stands at $168,350,000, with a Business\r\nInterruption limit of $32,000,000.\r\n\r\nMailing Address:\r\n\r\n2900 Biscayne Boulevard, Miami, FL 33137, USA\r\n\r\nAttached are the follc↓ g documents for your review:\r\nBroker Submission Document\r\n\r\nSchedule of Values (SOV)\r\n\r\nLoss Runs\r\n\r\nPlease confirm receipt and advise if additional details are required.\r\n\r\nBest regards,\r\n\r\nCaroline M. Dupree\r\n\r\nHarbor Point Commercial Insurance Brokers, LLC",
-      "body_bloburl": "https://agenticai1.blob.core.windows.net/attachment-downloader/body_19DD3F7C8BAEA6B1.txt",
-      "error": null,
-      "reference_id": "19DD3F7C8BAEA6B1",
-      "subject": "Apex submission",
-      "sender": "commercialinsurancebrokers <commercialinsurancebrokers57@gmail.com>",
-      "received_date": "Tue, 28 Apr 2026 17:31:50 +0530",
-      "has_attachments": True,
-      "attachments": [
-        {
-          "filename": "apex_loss_run.pdf",
-          "type": "PDF Document"
-        },
-        {
-          "filename": "apex_sov_v2.pdf",
-          "type": "PDF Document"
-        },
-        {
-          "filename": "apex_submission_v2.pdf",
-          "type": "PDF Document"
-        }
-      ],
-      "property_details": {
-        "property_name": "Azul Biscayne Resort & Spa, LLC",
-        "property_address": "2900 Biscayne Boulevard, Miami, FL 33137, USA",
-        "property_type": "hotel",
-        "broker_name": "Caroline M. Dupree",
-        "customer_name": "Azul Biscayne Resort & Spa, LLC"
-      }
-    }
-  ],
-  "Data_Filler": [
-    {
-      "Unique reference Number": "19DD3F7C8BAEA6B1",
-      "Email Subject": "Apex submission",
-      "Email Body": "https://agenticai1.blob.core.windows.net/attachment-downloader/body_19DD3F7C8BAEA6B1.txt",
-      "Sender Email Address": "commercialinsurancebrokers <commercialinsurancebrokers57@gmail.com>",
-      "Date and Time Received": "Tue, 28 Apr 2026 17:31:50 +0530",
-      "Risk Details": "Property: Azul Biscayne Resort & Spa, LLC | Type: hotel | Address: 2900 Biscayne Boulevard, Miami, FL 33137, USA",
-      "Broker/Agent Name": "Caroline M. Dupree",
-      "Customer Name": "Azul Biscayne Resort & Spa, LLC",
-      "Has Attachments": True,
-      "Attachment Count": 3,
-      "Attachments Info": [
-        {
-          "filename": "apex_loss_run.pdf",
-          "type": "PDF Document"
-        },
-        {
-          "filename": "apex_sov_v2.pdf",
-          "type": "PDF Document"
-        },
-        {
-          "filename": "apex_submission_v2.pdf",
-          "type": "PDF Document"
-        }
-      ],
-      "Table_name":"agent_submission_intake"
-    }
-  ]
-}
-}
+from models import AgentEligibility
+from sqlmodel import Session
+from db import get_engine
+from mapper import TABLE_MODEL_MAP
+from datetime import datetime
 
 
- File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 89, in run_test
-    "error": null,
-             ^^^^
-NameError: name 'null' is not defined
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-Traceback (most recent call last):
-  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 256, in <module>
-    run_test()
-  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 89, in run_test
-    "error": Null,
-             ^^^^
-NameError: name 'Null' is not defined
-(venv) Jarvis@JarvisPhase2:~/Musaddique/postgres_data_filler$ python3 testscripts.py 
-Testing Licensing & Sanction Checker MCP...
-Traceback (most recent call last):
-  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 256, in <module>
-    run_test()
-  File "/home/Jarvis/Musaddique/postgres_data_filler/testscripts.py", line 89, in run_test
-    "error": NULL,
-             ^^^^
+async def database_filler(result:dict):
 
-i tried multiple null words
+    def find_data_filler(obj):
+
+        # search in dictionary
+        if isinstance(obj, dict):
+
+            if "Data_Filler" in obj:
+                return obj["Data_Filler"]
+
+            for value in obj.values():
+
+                found = find_data_filler(value)
+
+                if found is not None:
+                    return found
+
+        # search in list
+        elif isinstance(obj, list):
+
+            for item in obj:
+
+                found = find_data_filler(item)
+
+                if found is not None:
+                    return found
+
+        return None
+
+
+    data = find_data_filler(result)
+
+    # FIX: must check None not empty
+    if data is None:
+        raise Exception("Data_Filler missing")
+
+    if not isinstance(data,list):
+        raise Exception("Data_Filler must be list")
+
+
+    processed=[]
+
+    for index,item in enumerate(data):
+
+        if "Table_name" not in item:
+            raise Exception(f"Row {index} missing Table_name")
+
+        table=item["Table_name"]
+
+        row=item.copy()
+
+        row.pop("Table_name")
+
+        processed.append({
+
+            "table":table,
+
+            "data":row,
+
+            "row_number":index
+
+        })
+
+    return processed
+
+
+
+# def process_database(rows:list):
+
+#     engine=get_engine()
+
+#     inserted=0
+
+#     errors=[]
+
+#     with Session(engine) as session:
+
+#         for row in rows:
+
+#             try:
+
+#                 table=row["table"]
+
+#                 data=row["data"]
+
+#                 row_number=row["row_number"]
+
+#                 if table not in TABLE_MODEL_MAP:
+
+#                     raise Exception(f"Table mapping missing for {table}")
+
+#                 model=TABLE_MODEL_MAP[table]
+
+#                 filtered_data={
+
+#                     k:v for k,v in data.items()
+
+#                     if k in model.model_fields
+
+#                 }
+
+#                 for field in [
+
+#                     "approval_date_time",
+
+#                     "eligibility_check_date_time"
+
+#                 ]:
+
+#                     if field in filtered_data:
+
+#                         if isinstance(filtered_data[field],str):
+
+#                             filtered_data[field]=datetime.fromisoformat(
+
+#                                 filtered_data[field].replace(" ","T")
+
+#                             )
+
+#                 db_row=model(**filtered_data)
+
+#                 session.add(db_row)
+
+#                 inserted+=1
+
+#             except Exception as e:
+
+#                 session.rollback()
+
+#                 errors.append({
+
+#                     "row":row_number,
+
+#                     "error":str(e)
+
+#                 })
+
+#         session.commit()
+
+#     return {
+
+#         "status":True,
+
+#         "rows_inserted":inserted,
+
+#         "rows_failed":len(errors),
+
+#         "errors":errors
+
+#     }
+
+
+def process_database(rows:list):
+   engine=get_engine()
+   inserted=0
+   errors=[]
+   with Session(engine) as session:
+       for row in rows:
+           try:
+               table=row["table"]
+               data=row["data"]
+               row_number=row["row_number"]
+               if table not in TABLE_MODEL_MAP:
+                   raise Exception(f"Table mapping missing for {table}")
+               model=TABLE_MODEL_MAP[table]
+               filtered_data={
+                   k:v for k,v in data.items()
+                   if k in model.model_fields
+               }
+               for field in [
+                   "approval_date_time",
+                   "eligibility_check_date_time"
+               ]:
+                   if field in filtered_data:
+                       if isinstance(filtered_data[field],str):
+                           filtered_data[field]=datetime.fromisoformat(
+                               filtered_data[field].replace(" ","T")
+                           )
+               db_row=model(**filtered_data)
+               session.add(db_row)
+               session.commit()   # ← commit per row
+               inserted+=1
+           except Exception as e:
+               session.rollback()   # only rollback failed row
+               errors.append({
+                   "row":row_number,
+                   "error":str(e)
+               })
+   return {
+       "status":True,
+       "rows_inserted":inserted,
+       "rows_failed":len(errors),
+       "errors":errors
+   }

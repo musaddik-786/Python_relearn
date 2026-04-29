@@ -1,12 +1,331 @@
-Good — now we’ll lock this cleanly and completely.
-You chose Option 1 (one row per reference), so everything below is aligned with that.
+I made the changes please check also i can see that there are errors
 
-No extra fluff — just the exact files you need, updated and consistent.
+Data_Filler.py
 
-⸻
+import logging
+import os
+import json
+import pandas as pd
+from io import BytesIO
+from azure.storage.blob import BlobServiceClient
+from typing import List, Dict, Any
+from .summary_service import summary_require_env
+from .summary_service import AZURE_STORAGE_CONNECTION_STRING, _parse_blob_url,new_parse_blob_url
+import re
+from typing import Iterable
 
-✅ 1. db.py
+logger = logging.getLogger(__name__)
 
+
+
+
+def extract_filenames_and_summaries(output_folder: str) -> List[Dict[str, Any]]:
+    """
+    Extracts file names, summaries, and raw text from the JSON file in the output folder.
+
+    Returns list of:
+      {
+        "file_name": "<file_name>",
+        "summary": "<summary>",
+        "text": "<full_text_or_first_page_text>"
+      }
+    """
+   
+    result_file = os.path.join(output_folder, "layout_summaries_result.json")
+    # base = os.path.dirname(os.path.abspath(__file__))
+    # result_file = os.path.join(base, output_folder, "layout_summaries_result.json")
+
+
+    if not os.path.exists(result_file):
+        raise FileNotFoundError(f"No JSON result file found at {result_file}")
+
+    with open(result_file, "r", encoding="utf-8") as f:
+        data = json.load(f) 
+
+    summaries = data.get("summaries", [])
+
+    extracted_data = []
+    for item in summaries:
+        file_name = item.get("file_name")
+        summary = item.get("summary")
+        text = item.get("text","")
+        # If summary missing → generate fallback summary
+        if not summary and text:
+            summary = text[:800]   # fallback so LLM still gets data
+        extracted_data.append(
+            {
+                "file_name": file_name,
+                "summary": summary,
+                "text": text
+            }
+        )
+    
+    return extracted_data
+
+#Absolute working code 
+def beautify_extracted_data(extracted_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Beautifies and prints the extracted data in the desired format.
+    NOTE: we do NOT include 'text' here, only file_name + summary + reference_number.
+    """
+    beautified_data: List[Dict[str, Any]] = []
+
+    for item in extracted_data:
+        file_name = item["file_name"]
+        reference_number = file_name.split("_")[0]
+
+        beautified_item = {
+            "reference_number": reference_number,
+            "file_name": file_name,
+            "summary": item["summary"],
+        }
+        beautified_data.append(beautified_item)
+
+        logger.info("file_name: %s", file_name)
+        logger.info("reference_number: %s", reference_number)
+        logger.info("summary: %s", item['summary'])
+
+    return beautified_data
+
+
+
+
+
+def connect_to_blob(blob_url: str, beautified_payload: Dict[str, Any]):
+    """
+    Update Excel blob using the NEW beautified payload format (dict).
+
+    Expected beautified_payload shape:
+    {
+      "combined_summary": "<string or None>",
+      "individualized_summary": [
+         {
+           "file_name": "...",
+           "summary": "...",                # (not used here)
+           "document_type": "...",          # (optional)
+           "processed_summary": "..."       # used for Document Summary
+         }, ...
+      ]
+    }
+
+    Behavior:
+      - For each reference (derived from file_name: <REF>_...), find rows where
+        excel["Unique refrence Number"] == ref.
+      - Overwrite "Submission Summary" on those rows with combined_summary (if provided).
+      - Overwrite "Document Summary" on those rows with a single cell value that is the
+        concatenation (joined by two newlines) of:
+           "file_name: <file_name>\nprocessed_summary:\n<processed_summary>"
+        for all files belonging to that reference.
+      - Does NOT create new rows. If no match is found for a reference, we skip it.
+      - Returns updated pandas.DataFrame on success, or {"status": False, "error": "..."}.
+    """
+    try:
+        summary_require_env()
+    except Exception as e:
+        return {"status": False, "error": f"Environment misconfigured: {e}"}
+
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        return {"status": False, "error": "AZURE_STORAGE_CONNECTION_STRING not set"}
+
+    # parse blob URL into container + path
+    try:
+        container, blob_path = new_parse_blob_url(blob_url)
+    except Exception as e:
+        return {"status": False, "error": f"Unable to parse blob URL: {e}"}
+
+    try:
+        svc = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        blob_client = svc.get_blob_client(container=container, blob=blob_path)
+
+        # download excel into memory
+        blob_bytes = blob_client.download_blob().readall()
+        excel_df = pd.read_excel(BytesIO(blob_bytes))
+
+        # required reference column
+        if "Unique refrence Number" not in excel_df.columns:
+            return {"status": False, "error": "'Unique refrence Number' column is missing in the Excel file."}
+
+        # ensure target columns exist (create if missing)
+        if "Submission Summary" not in excel_df.columns:
+            excel_df["Submission Summary"] = None
+        if "Document Summary" not in excel_df.columns:
+            excel_df["Document Summary"] = None
+
+        combined_summary = beautified_payload.get("combined_summary")
+        individualized = beautified_payload.get("individualized_summary", [])
+
+        # Build mapping ref -> list of aggregated doc strings
+        ref_to_entries = {}
+        for item in individualized:
+            fname = item.get("file_name") or ""
+            processed = item.get("processed_summary") or ""
+
+            if not fname:
+                # skip entries without filename
+                continue
+
+            # Expect filename format "<REF>_..."; if missing underscore, skip (defensive)
+            if "_" not in fname:
+                logger.warning("[connect_to_blob] skipping filename with unexpected format: %s", fname)
+                continue
+
+            ref = fname.split("_", 1)[0]
+            entry_text = f"file_name: {fname}\nprocessed_summary:\n{processed}".strip()
+            ref_to_entries.setdefault(ref, []).append(entry_text)
+
+        # For each reference, write aggregated values into matching rows
+        #below was commented just now
+        for ref, entries in ref_to_entries.items():
+            matches = excel_df[excel_df["Unique refrence Number"] == ref].index
+            if matches.empty:
+                # no matching reference in sheet — skip without creating rows
+                logger.warning("[connect_to_blob] reference not found in Excel, skipping: %s", ref)
+                continue
+
+#Added below logic
+            # any_match_found = False
+            # for ref, entries in ref_to_entries.items():
+            #     matches = excel_df[excel_df["Unique refrence Number"] == ref].index
+            #     if matches.empty:
+            #         print(f"[connect_to_blob] reference not found in Excel: {ref}")
+            #         continue
+            # any_match_found = True
+
+            # Join all entries for this reference into one cell value
+            document_summary_cell = "\n\n".join(entries).strip()
+
+            for idx in matches:
+                # Overwrite Submission summary if combined_summary provided; else leave as None
+                if combined_summary:
+                    excel_df.at[idx, "Submission Summary"] = combined_summary
+                else:
+                    excel_df.at[idx, "Submission Summary"] = None
+
+                # Overwrite Document summary with aggregated cell
+                excel_df.at[idx, "Document Summary"] = document_summary_cell
+
+
+# #added just now
+#         if not any_match_found:
+#             return {
+#                 "status": False,
+#                 "error": "No matching reference numbers found in Excel"
+#             }
+
+        # save updated excel back to blob (overwrite)
+        out_stream = BytesIO()
+        excel_df.to_excel(out_stream, index=False, engine="openpyxl")
+        out_stream.seek(0)
+        blob_client.upload_blob(out_stream, overwrite=True)
+
+        return excel_df
+
+    except Exception as e:
+        return {"status": False, "error": f"Failed to process blob: {e}"}
+
+
+
+
+
+        
+
+
+
+
+def normalize_text(s: str) -> str:
+    """
+    Clean and normalize an LLM-produced string:
+    - Replace escaped unicode sequences like '\\u2714' with '✔' (or remove)
+    - Replace repeated newlines with single newline
+    - Trim leading/trailing whitespace on each line and collapse multiple spaces
+    - Remove stray carriage returns
+    """
+    if not s:
+        return s
+    # if the string contains literal backslash-u (e.g. "\\u2714") turn into the actual char
+    try:
+        # decode unicode-escapes (only when safe) — but avoid double-decoding valid unicode
+        # This will transform "\\u2714" into "✔"
+        s = s.encode("utf-8").decode("unicode_escape")
+    except Exception:
+        # fallback: ignore decoding errors
+        pass
+
+    # Convert any ✔ variants (some LLMs produce unicode check) to a single visible symbol
+    s = s.replace("\u2714", "✔")
+    s = s.replace("\\u2714", "✔")  # literal backslash-u
+
+    # Normalize line endings & whitespace
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    # collapse multiple blank lines to single
+    s = re.sub(r"\n\s*\n+", "\n\n", s)
+    # trim trailing spaces on each line
+    s = "\n".join([ln.strip() for ln in s.split("\n")])
+    # collapse more-than-two spaces
+    s = re.sub(r"[ ]{2,}", " ", s)
+    # final strip
+    return s.strip()
+
+
+
+
+def beautify_api_response(cleaned_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Take cleaned_payload (the dict you return to API) and produce a
+    more human-friendly 'beautified' structure for display or Excel upload.
+
+    Input shape:
+      {
+        "combined_summary": "<string>",
+        "individualized_summary": [
+          {"file_name": ..., "summary": ..., "document_type": ..., "processed_summary": ...},
+          ...
+        ]
+      }
+
+    Output shape (dict):
+      {
+        "combined_summary": "<normalized multi-line string>",
+        "individualized_summary": [
+           {
+             "file_name": "<filename>",
+             "summary": "<normalized single-paragraph summary>",
+             "document_type": "<ACORD|Loss Run|SOV>",
+             "processed_summary": "<normalized multi-line narrative>"
+           },
+           ...
+        ]
+      }
+
+    This function **does not** return 'text' or raw LLM outputs with \n escapes.
+    """
+    out = {"combined_summary": None, "individualized_summary": []}
+
+    combined = cleaned_payload.get("combined_summary")
+    out["combined_summary"] = normalize_text(combined) if combined else None
+
+    indiv = cleaned_payload.get("individualized_summary", [])
+    beautified_list = []
+    if isinstance(indiv, Iterable):
+        for item in indiv:
+            # defensive: ensure keys exist
+            file_name = item.get("file_name")
+            summary = item.get("summary")
+            doc_type = item.get("document_type")
+            processed = item.get("processed_summary")
+
+            beautified_item = {
+                "file_name": file_name,
+                "summary": normalize_text(summary) if summary else None,
+                "document_type": doc_type,
+                "processed_summary": normalize_text(processed) if processed else None,
+            }
+            beautified_list.append(beautified_item)
+
+    out["individualized_summary"] = beautified_list
+    return out
+
+db.py
 import os
 from sqlmodel import create_engine
 from sqlalchemy.pool import NullPool
@@ -23,11 +342,15 @@ def get_engine():
         echo=False
     )
 
+mapper.py
+from models import AgentSubmissionIntake
 
-⸻
+TABLE_MODEL_MAP = {
+    "agent_submission_intake": AgentSubmissionIntake
+}
 
-✅ 2. models.py
 
+models.py
 from sqlmodel import SQLModel, Field, Column
 from sqlalchemy import Integer, String, TIMESTAMP, Text
 from typing import Optional
@@ -60,20 +383,253 @@ class AgentSubmissionIntake(SQLModel, table=True):
     )
 
 
-⸻
+newsummary.py
 
-✅ 3. mapper.py
+# newsummary.py
+import logging
+from dotenv import load_dotenv
+import os
+from typing import List, Dict, Optional
+from openai import AzureOpenAI
+from common.phoenix_prompt import build_prompt
 
-from models import AgentSubmissionIntake
 
-TABLE_MODEL_MAP = {
-    "agent_submission_intake": AgentSubmissionIntake
-}
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+
+if not (
+    AZURE_OPENAI_ENDPOINT
+    and AZURE_OPENAI_API_VERSION
+    and AZURE_OPENAI_API_KEY
+    and AZURE_OPENAI_CHAT_DEPLOYMENT
+):
+    raise RuntimeError("Azure OpenAI env vars missing.")
+
+client = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version=AZURE_OPENAI_API_VERSION,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+)
 
 
-⸻
+def extract_refs_from_attachments(attachments: List[Dict]) -> List[str]:
+    """Return unique refs from filenames (text before first underscore)."""
+    refs = []
+    for item in attachments or []:
+        fname = item.get("file_name", "") or ""
+        if "_" in fname:
+            refs.append(fname.split("_", 1)[0])
+    # keep unique in original order
+    seen = set()
+    out = []
+    for r in refs:
+        if r not in seen:
+            seen.add(r)
+            out.append(r)
+    return out
 
-✅ 4. service.py (NO change except cleaned)
+
+def load_raw_email_bodies_for_refs(refs: List[str], email_body_folder: str = "email_body") -> Dict[str, Dict]:
+    """
+    Load raw files named `body_<ref>.txt` from email_body_folder.
+    Returns dict: ref -> {"status": "ok", "path": ..., "raw": "<full text>"} or {"status":"missing"}.
+    """
+    base = os.path.dirname(os.path.abspath(__file__))
+    out = {}
+    for ref in refs or []:
+        fname = f"body_{ref}.txt"
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        EMAIL_BODY_DIR = os.path.join(BASE_DIR, "email_body")
+        path = os.path.join(EMAIL_BODY_DIR, fname)
+        # path = os.path.join(base, email_body_folder, fname)
+        if not os.path.exists(path):
+            out[ref] = {"status": "missing", "path": path}
+            continue
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                raw = f.read()
+            out[ref] = {"status": "ok", "path": path, "raw": raw}
+        except Exception as e:
+            out[ref] = {"status": "error", "path": path, "error": str(e)}
+    return out
+
+
+def summarize_attachments(
+    attachments: List[Dict],
+    email_bodies: Optional[Dict[str, Dict]] = None,
+    include_email_bodies_in_prompt: bool = True,
+) -> str:
+    """
+    Build combined submission summary.
+
+    Args:
+      attachments: list of {"file_name":..., "summary":..., "text":...}
+      email_bodies: optional dict mapping ref -> {"status": "ok", "raw": "..."}.
+                    If None, this function will attempt to load local files body_<ref>.txt.
+      include_email_bodies_in_prompt: whether to include email bodies block in prompt.
+
+    Returns:
+      Combined summary string from LLM (or an informative error string on failure).
+    """
+    # build attachments text (single pass — no duplication)
+    attachment_chunks = []
+    for item in attachments or []:
+        file_name = item.get("file_name", "unknown_file")
+        summary_text = item.get("summary", "") or ""
+        chunk = f"FILENAME: {file_name}\nSUMMARY: {summary_text}"
+        attachment_chunks.append(chunk)
+    attachments_text = "\n\n".join(attachment_chunks)
+    attachments_text = attachments_text[:8000]  # safety limit
+
+    # load email bodies if not provided
+    if email_bodies is None:
+        refs = extract_refs_from_attachments(attachments)
+        email_bodies = load_raw_email_bodies_for_refs(refs)
+
+    # build email bodies text block (compact)
+    email_chunks = []
+    if include_email_bodies_in_prompt and isinstance(email_bodies, dict):
+        for ref, meta in (email_bodies or {}).items():
+            if meta.get("status") == "ok":
+                raw = meta.get("raw", "") or ""
+                snippet = raw[:3000]  # keep reasonable amount
+                email_chunks.append(f"REFERENCE: {ref}\nRAW_EMAIL_BODY:\n{snippet}")
+    email_bodies_text = "\n\n---\n\n".join(email_chunks)
+    if email_bodies_text and len(email_bodies_text) > 6000:
+        email_bodies_text = email_bodies_text[:6000] + "\n[TRUNCATED]"
+
+
+
+    prompt = build_prompt(
+
+        "UHJvbXB0VmVyc2lvbjoxNQ==",
+
+        attachments_text=attachments_text,
+
+        email_bodies_text=email_bodies_text
+
+    )
+
+    
+
+    # debug info to help you debug when running
+    try:
+        logger.info("[newsummary] prompt length=%d; email bodies included=%s", len(prompt), bool(email_chunks))
+    except Exception as e:
+        logger.warning("[newsummary] Could not log prompt debug info: %s", e)
+
+    # Call the LLM — catch and return error text if it fails
+    logger.info("🤖 LLM call: summarize_attachments | prompt_chars=%d | model=%s",
+                len(prompt), AZURE_OPENAI_CHAT_DEPLOYMENT)
+    try:
+        response = client.chat.completions.create(
+            model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1024,
+            temperature=0.2,
+        )
+        result = response.choices[0].message.content.strip()
+        logger.info("✅ LLM response: summarize_attachments | response_chars=%d", len(result))
+        return result
+    except Exception as e:
+        # Return the error string so the handler won't silently make combined_summary null
+        err = f"[LLM_ERROR] {type(e).__name__}: {e}"
+        logger.error(err)
+        return err
+
+
+
+seperatesummary.py
+
+import logging
+from dotenv import load_dotenv
+import os
+from typing import List, Dict, Any
+from openai import AzureOpenAI
+from common.phoenix_prompt import build_prompt
+
+
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+
+if not (
+    AZURE_OPENAI_ENDPOINT
+    and AZURE_OPENAI_API_VERSION
+    and AZURE_OPENAI_API_KEY
+    and AZURE_OPENAI_CHAT_DEPLOYMENT
+):
+    raise RuntimeError("Azure OpenAI env vars missing.")
+
+client = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version=AZURE_OPENAI_API_VERSION,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+)
+
+
+def _call_chat_llm(prompt: str, max_tokens: int = 700, temperature: float = 0.2):
+    logger.info("🤖 LLM call: _call_chat_llm | prompt_chars=%d | max_tokens=%d | model=%s",
+                len(prompt), max_tokens, AZURE_OPENAI_CHAT_DEPLOYMENT)
+    response = client.chat.completions.create(
+        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
+    result = response.choices[0].message.content.strip()
+    logger.info("✅ LLM response: _call_chat_llm | response_chars=%d", len(result))
+    return result
+
+
+def generate_professional_summary(text: str):
+
+    text = text[:5000]
+
+
+
+
+    prompt = build_prompt(
+
+        "UHJvbXB0VmVyc2lvbjoxNw==",
+
+        text= text,
+
+    )
+
+    return _call_chat_llm(prompt)
+
+
+def individual_summary(attachments: List[Dict[str, Any]]):
+
+    for attachment in attachments:
+
+        file_name = attachment.get("file_name","")
+        text = attachment.get("text","")
+
+        logger.info("Processing summary for %s", file_name)
+
+        processed_summary = generate_professional_summary(text)
+
+        attachment["processed_summary"] = processed_summary
+
+        logger.info("Processed Summary completed for %s", file_name)
+
+    return attachments
+
+
+service.py
 
 from sqlmodel import Session
 from db import get_engine
@@ -170,119 +726,966 @@ def process_database(rows: list):
     }
 
 
-⸻
-
-🔥 5. summary_handler.py (ONLY IMPORTANT CHANGE)
-
-❌ REMOVE THIS COMPLETELY
-
-connect_to_blob(...)
-
-
-⸻
-
-✅ ADD THIS BLOCK (CORE LOGIC)
-
-Place this AFTER:
-
-beautified = beautify_api_response(cleaned_payload)
+summary_classifier.py
+import logging
+from dotenv import load_dotenv
+import os
+from openai import AzureOpenAI  # Correct import for Azure OpenAI
+from common.phoenix_prompt import build_prompt
 
 
-⸻
+logger = logging.getLogger(__name__)
 
+# Load environment variables
+load_dotenv()
+
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+
+if not (
+    AZURE_OPENAI_ENDPOINT
+    and AZURE_OPENAI_API_VERSION
+    and AZURE_OPENAI_API_KEY
+    and AZURE_OPENAI_CHAT_DEPLOYMENT
+):
+    raise RuntimeError(
+        "Azure OpenAI env vars missing. Please set "
+        "AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, "
+        "AZURE_OPENAI_API_KEY and AZURE_OPENAI_CHAT_DEPLOYMENT"
+    )
+
+# Create Azure OpenAI client
+client = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version=AZURE_OPENAI_API_VERSION,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+)
+
+
+def summarize_first_page(document_content: dict, file_name: str | None = None) -> str:
+    """
+    Use Azure OpenAI to summarize the *first page* of the document.
+
+    document_content is expected to come from load_summary_document() and contain:
+      - "first_page_text": str  # we store full text there now
+    """
+
+    first_page_text = document_content.get("first_page_text")
+    if not first_page_text:
+        first_page_text = document_content.get("text", "")
+
+    # Safety: limit size so we don't overload the prompt
+    first_page_text = first_page_text[:4000]
+
+#Working prompt 4/24/26
+
+#     prompt = f"""
+# You are an experienced Commercial Insurance Underwriter.
+# Read the FIRST PAGE of the document and write a short, underwriting-focused
+# summary in natural language. The summary should highlight whatever information
+# is actually present that would help an underwriter. 
+# Do not mention document structure, do not
+# reference page numbers, and more importantly DO NOT INCLUDE ANYTHING THAT IS NOT EXPLICITLY SUPPORTED BY THE TEXT.
+# Write the summary as a single short paragraph of 4–6 sentences, objective,
+# clear, and focused only on the details visible in the text. 
+# Always remember, Do not mention document structure, do not mention reference page numbers.
+# # First page content:
+# # \"\"\"{first_page_text}\"\"\"
+#     """
+
+
+
+
+    prompt = build_prompt(
+
+        "UHJvbXB0VmVyc2lvbjoxOA==",
+
+        first_page_text = first_page_text,
+
+    )
+
+
+    logger.info("🤖 LLM call: summarize_first_page | file=%s | prompt_chars=%d | model=%s",
+                file_name, len(first_page_text), AZURE_OPENAI_CHAT_DEPLOYMENT)
+    response = client.chat.completions.create(
+        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=256,
+        temperature=0.2,
+    )
+
+    try:
+        result = response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.warning("Could not access response content directly, using getattr fallback: %s", e)
+        result = getattr(response.choices[0].message, "content", "").strip()
+
+    logger.info("✅ LLM response: summarize_first_page | file=%s | response_chars=%d", file_name, len(result))
+    return result
+
+
+summary_handler.py
+
+
+import os
+import json
+import logging
+from typing import Dict, Any, List
+import pandas as pd
+
+
+from urllib.parse import urlparse
+import os
+
+logger = logging.getLogger(__name__)
 
 from datetime import datetime
-
-data_filler = []
-
-combined_summary = beautified.get("combined_summary")
-individualized = beautified.get("individualized_summary", [])
-
-# 🔥 GROUP BY reference_number (OPTION 1)
-ref_to_entries = {}
-
-for item in individualized:
-    file_name = item.get("file_name", "")
-    processed = item.get("processed_summary", "")
-
-    if "_" not in file_name:
-        continue
-
-    ref = file_name.split("_")[0]
-
-    entry = f"file_name: {file_name}\nprocessed_summary:\n{processed}"
-    ref_to_entries.setdefault(ref, []).append(entry)
-
-# 🔥 ONE ROW PER REFERENCE
-for ref, entries in ref_to_entries.items():
-
-    document_summary = "\n\n".join(entries)
-
-    row = {
-        "reference_number": ref,
-        "submission_summary": combined_summary,
-        "document_summary": document_summary,
-        "created_at": datetime.utcnow().isoformat(),
-        "Table_name": "agent_submission_intake"
-    }
-
-    data_filler.append(row)
-
-# attach to response
-beautified["Data_Filler"] = data_filler
+from .summary_service import summary_require_env
+# from summary_storage_utils import download_blob_to_input_folder
+from .summary_loader import load_summary_document
+from .summary_classifier import summarize_first_page
+from .Data_Filler import extract_filenames_and_summaries
+from .Data_Filler import connect_to_blob, beautify_extracted_data
+from .newsummary import summarize_attachments
+from .separate_summary import individual_summary
+from .Data_Filler import beautify_api_response
+from .summary_storage_utils import download_blob_to_input_folder_by_reference, read_text_file_from_container,extract_filename_referencenumber_container_name
+# from newsummary import extract_refs_from_attachments, load_raw_email_bodies_for_refs, summarize_attachments
 
 
-⸻
 
-✅ FINAL RETURN
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-return beautified
+# INPUT_FOLDER = "input"
+# OUTPUT_FOLDER = "output"
+# EMAIL_BODY = "email_body"
 
+INPUT_FOLDER = os.path.join(BASE_DIR, "input")
+OUTPUT_FOLDER = os.path.join(BASE_DIR, "output")
+EMAIL_BODY = os.path.join(BASE_DIR, "email_body")
 
-⸻
+def clean_result_for_api(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build a compact, clean dictionary response from the full 'result' dict.
 
-🔥 FINAL RESPONSE STRUCTURE (IMPORTANT)
-
-Now your summary MCP returns:
-
-{
-  "combined_summary": "...",
-  "individualized_summary": [...],
-  "Data_Filler": [
+    Output shape:
     {
-      "reference_number": "19DD3F7C8BAEA6B1",
-      "submission_summary": "...",
-      "document_summary": "file_name: doc1...\n\nfile_name: doc2...",
-      "created_at": "2026-04-29T12:00:00",
-      "Table_name": "agent_submission_intake"
+      "combined_summary": "<string or None>",
+      "individualized_summary": [
+         { "file_name": ..., "summary": ..., "document_type": ..., "processed_summary": ... },
+         ...
+      ]
     }
-  ]
+
+    This removes raw 'text' and error details from the per-file items.
+    """
+    combined = result.get("combined_summary")
+
+    raw_individualized = result.get("individualized_summary", [])
+    cleaned_list: List[Dict[str, Any]] = []
+
+    if isinstance(raw_individualized, list):
+        for item in raw_individualized:
+            cleaned_item = {
+                "file_name": item.get("file_name"),
+                "summary": item.get("summary"),
+                "document_type": item.get("document_type"),
+                "processed_summary": item.get("processed_summary"),
+            }
+            cleaned_list.append(cleaned_item)
+
+    return {
+        "combined_summary": combined,
+        "individualized_summary": cleaned_list,
+    }
+
+
+async def summarize_blob_pdfs_layout(blob_urls: List[str]) -> Dict[str, Any]:
+    """
+    For each Blob URL:
+      - Download PDF into input/
+      - Use Form Recognizer to extract text (all pages)
+      - Use LLM to summarize the FIRST PAGE
+
+    Saves the full detailed JSON (including raw text) to ./output/layout_summaries_result.json
+    but RETURNS a cleaned dictionary suitable for API responses (no raw 'text').
+    """
+    try:
+        summary_require_env()
+    except Exception as e:
+        logger.error("❌ Environment misconfigured, aborting summarization: %s", e)
+        return {"combined_summary": None, "individualized_summary": []}
+
+    summaries: List[Dict[str, Any]] = []
+
+    for blob_url in blob_urls:
+        file_name = None
+
+        try:
+            container, filename, reference_number =  await extract_filename_referencenumber_container_name(blob_url)
+            file_name = filename
+
+
+            # parsed = urlparse(blob_url)
+            # file_name_with_ext = os.path.basename(parsed.path)
+            # file_name = os.path.splitext(file_name_with_ext)[0]
+            # reference_number = file_name.split("_")[0]
+            # container = parsed.path.split("/")[1]
+
+
+            # parsed = urlparse(blob_url)
+            # path_parts = parsed.path.lstrip("/").split("/")
+            # container = path_parts[0]
+            # file_name_with_ext = path_parts[-1]
+            # file_name = os.path.splitext(file_name_with_ext)[0]
+            # reference_number = file_name.split("_")[0]
+            # file_name = filename
+            
+            logger.info("📄 Parsed blob: container=%s reference_number=%s filename=%s",
+                        container, reference_number, filename)
+        except Exception as e:
+            logger.error("❌ Failed to parse blob URL %s: %s", blob_url, e)
+            summaries.append(
+                {
+                    "blob_url": blob_url,
+                    "file_name": file_name,
+                    "summary": None,
+                    "text": None,
+                    "error": f"Failed to read filename: {e}",
+                }
+            )
+            continue
+
+        # try:
+        #     text = await read_text_file_from_container(filename)
+        # except Exception as e:
+        #     summaries.append(
+        #         {
+        #             "blob_url": blob_url,
+        #             "file_name": file_name,
+        #             "summary": None,
+        #             "text": text,
+        #             "error": f"Failed to read filename: {e}",
+        #         }
+        #     )            
+        #     continue
+
+        try:
+            text = await read_text_file_from_container(filename,container)
+        except Exception as e:
+            logger.error("❌ Text file missing for %s (ref=%s): %s", filename, reference_number, e)
+            summaries.append(
+                {
+                    "blob_url": blob_url,
+                    "file_name": file_name,
+                    "reference_number": reference_number,
+                    "summary": None,
+                    "text": None,
+                    "error": f"TEXT_FILE_MISSING: {e}",
+                }
+            )
+            continue
+
+
+
+        # 1) Download PDF
+        # try:
+        #     local_pdf = await download_blob_to_input_folder(
+        #         blob_url, input_folder=INPUT_FOLDER
+        #     )
+        #     file_name = os.path.basename(local_pdf)
+        # except Exception as e:
+        #     summaries.append(
+        #         {
+        #             "blob_url": blob_url,
+        #             "file_name": file_name,
+        #             "summary": None,
+        #             "text": None,
+        #             "error": f"Failed to download blob: {e}",
+        #         }
+        #     )
+        #     continue
+
+        # # 2) Use Form Recognizer to analyze the document
+        # try:
+        #     document_content = load_summary_document(local_pdf)
+        # except Exception as e:
+        #     summaries.append(
+        #         {
+        #             "blob_url": blob_url,
+        #             "file_name": file_name,
+        #             "summary": None,
+        #             "text": None,
+        #             "error": f"Form Recognizer failed: {e}",
+        #         }
+        #     )
+        #     continue
+
+        # Extract raw text (stored in first_page_text key by loader)
+        # text_content = document_content.get("text", "")
+
+        # 3) Summarize FIRST PAGE using LLM (short summary)
+        try:
+            summary_text = summarize_first_page({"first_page_text":text}, file_name=file_name)
+        except Exception as e:
+            logger.error("❌ Summarization failed for %s: %s", file_name, e)
+            summaries.append(
+                {
+                    "blob_url": blob_url,
+                    "file_name": file_name,
+                    "summary": None,
+                    "text": text,
+                    "error": f"Summarization failed: {e}",
+                }
+            )
+            continue
+
+        # 4) Success case for this document — include raw text for audit on disk
+        summaries.append(
+            {
+                "blob_url": blob_url,
+                "file_name": file_name,
+                "reference_number":reference_number,
+                "summary": summary_text,
+                "text": text,
+                "error": None,
+            }
+        )
+
+    result: Dict[str, Any] = {"status": True, "summaries": summaries}
+
+    # 5) Save result to ./output (retain 'text' on disk for audit)
+    try:
+        os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+        out_path = os.path.join(OUTPUT_FOLDER, "layout_summaries_result.json")
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        result["save_error"] = str(e)
+
+    # 6) Beautify and optionally write to Excel (unchanged; uses only file_name + summary)
+    beautify_data: List[Dict[str, Any]] = []
+    try:
+        extracted_data = extract_filenames_and_summaries(OUTPUT_FOLDER)
+        logger.info("✅ Extracted beautified data")
+        beautify_data = beautify_extracted_data(extracted_data)
+        logger.info("✅ Beautify complete: %s", beautify_data)
+
+    except Exception as e:
+        logger.exception("❌ Error in beautify / blob step")
+
+
+    try:
+        download_results = await download_blob_to_input_folder_by_reference(
+            beautify_data,
+            output_folder=EMAIL_BODY,
+            container_name="attachment-downloader",
+            blob_name_template="body_{ref}.txt",
+        )
+        logger.info("✅ Email body download results: %s", download_results)
+    except Exception as e:
+        logger.exception("❌ Failed to download email bodies by reference")
+
+#Working code friday night 7:20 pm
+    # 7) Combined submission summary (uses file_name + summary only)
+    combined_summary_text = None
+    filenamesummary_extracted_beautified: List[Dict[str, Any]] = []
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        # output_folder = "output"
+
+        json_path = os.path.join(OUTPUT_FOLDER, "layout_summaries_result.json")
+        with open(json_path, "r", encoding="utf-8") as f:
+            layout_json = json.load(f)
+
+        # filenamesummary_extracted_beautified = extract_filenames_and_summaries(output_folder)
+       
+        #Commented this 
+        # filenamesummary_extracted_beautified = summaries
+        #Added below two things after commenting
+        valid_documents = [
+            doc for doc in summaries
+            if doc.get("text") and not doc.get("error")
+            ]
+
+        filenamesummary_extracted_beautified = valid_documents
+
+        logger.info("📄 Per-document summaries: %d document(s)", len(filenamesummary_extracted_beautified))
+        
+        
+        #HERE WE CAN CALL THE EXTRACT REFS FROM ATTACHMENTS AND LOAD RAW EMAIL BODIES FOR REFS FUNCTIONS AND KEEP THE CALLING OF SUMMARIZE_ATTACHMENTS SAME AS BELOW 
+
+        # reference_number_extracted = extract_refs_from_attachments(beautify_data)
+
+        # load_raw_email_bodies_for_refs(reference_extracted,"email_body")
+
+        combined_summary_text = summarize_attachments(filenamesummary_extracted_beautified)
+        logger.info("✅ Combined submission summary generated")
+        result["combined_summary"] = combined_summary_text
+    except Exception as e:
+        logger.exception("❌ Error generating combined submission summary")
+        result["combined_summary_error"] = str(e)
+        combined_summary_text = None
+
+    # 8) Individual typed summaries (ACORD / Loss Run / SOV)
+    try:
+        individualized_summary = individual_summary(filenamesummary_extracted_beautified)
+        logger.info("✅ Individual summaries generated: %d document(s)", len(individualized_summary))
+        result["individualized_summary"] = individualized_summary
+    except Exception as e:
+        logger.exception("❌ Error generating individual summary")
+        result["individualized_summary_error"] = str(e)
+        result["individualized_summary"] = []
+
+
+    # 9) CLEAN the result for the API and return only the compact payload (no raw text)
+    cleaned_payload = clean_result_for_api(result)
+
+
+    
+    beautified: Dict[str, Any] = cleaned_payload
+    excel_update_status = "Not attempted"
+    try:
+        beautified = beautify_api_response(cleaned_payload)
+        logger.info("✅ API response beautified")
+
+        DATA_URL = os.getenv("Data_URL")
+        if DATA_URL:
+            try:
+                #I commented the below line as you said to remove connect_to_blob
+                # updated_data = connect_to_blob(DATA_URL, beautified)
+
+#_____added the below code as you gave me ______________________
+
+                data_filler = []
+
+                combined_summary = beautified.get("combined_summary")
+                individualized = beautified.get("individualized_summary", [])
+
+                # 🔥 GROUP BY reference_number (OPTION 1)
+                ref_to_entries = {}
+
+                for item in individualized:
+                    file_name = item.get("file_name", "")
+                    processed = item.get("processed_summary", "")
+
+                    if "_" not in file_name:
+                        continue
+
+                    ref = file_name.split("_")[0]
+
+                    entry = f"file_name: {file_name}\nprocessed_summary:\n{processed}"
+                    ref_to_entries.setdefault(ref, []).append(entry)
+
+                # 🔥 ONE ROW PER REFERENCE
+                for ref, entries in ref_to_entries.items():
+
+                    document_summary = "\n\n".join(entries)
+
+                    row = {
+                        "reference_number": ref,
+                        "submission_summary": combined_summary,
+                        "document_summary": document_summary,
+                        "created_at": datetime.utcnow().isoformat(),
+                        "Table_name": "agent_submission_intake"
+                    }
+
+                    data_filler.append(row)
+
+                # attach to response
+                beautified["Data_Filler"] = data_filler
+
+#_____added the above code as you gave me ______________________
+
+
+
+                if isinstance(updated_data, pd.DataFrame):
+                    logger.info("☁️ Blob data processed and Excel updated")
+                    excel_update_status = "Excel Opened"
+                else:
+                    error_msg = updated_data.get("error", "Excel update failed")
+                    logger.error("❌ Excel update failed: %s", error_msg)
+                    excel_update_status = error_msg
+            except Exception as e:
+                logger.exception("❌ Error processing blob data")
+                excel_update_status = str(e)
+        else:
+            logger.warning("⚠️ Data_URL environment variable is not set")
+            excel_update_status = "DATA_URL not configured"
+    except Exception as e:
+        logger.exception("❌ Error in beautify / blob step")
+    # return cleaned_payload
+    beautified["excel_update_status"] = excel_update_status
+    return beautified
+
+
+
+summary_loader.py
+
+
+import logging
+from dotenv import load_dotenv
+import os
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+
+logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Fetch variables
+endpoint = os.getenv("AZURE_FORMRECOG_ENDPOINT")
+key = os.getenv("AZURE_FORMRECOG_KEY")
+
+# Fail fast if missing
+if not endpoint:
+    raise ValueError("AZURE_FORMRECOG_ENDPOINT is not set. Check your .env file.")
+if not key:
+    raise ValueError("AZURE_FORMRECOG_KEY is not set. Check your .env file.")
+
+# Create the client using the key and endpoint
+client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
+
+
+def load_summary_document(file_path: str) -> dict:
+    """
+    Extract ALL PAGES using Form Recognizer's prebuilt-read model.
+
+    Even though the return key is 'first_page_text',
+    we now return the FULL DOCUMENT TEXT (all pages) concatenated.
+    """
+    with open(file_path, "rb") as f:
+        poller = client.begin_analyze_document(
+            "prebuilt-read",
+            document=f
+        )
+        result = poller.result()
+
+    if not result.pages:
+        return {"first_page_text": ""}
+
+    all_pages_text_list = []
+    # Collect text for ALL pages
+    for page in result.pages:
+        page_lines = [line.content for line in page.lines]
+        page_text = "\n".join(page_lines)
+        all_pages_text_list.append(page_text)
+
+    # Combine everything into ONE string
+    all_pages_text = "\n\n".join(all_pages_text_list)
+
+    # Optional debug
+    logger.debug("ALL pages text (truncated to 500 chars): %s", all_pages_text[:500])
+    logger.debug("---- END OF PREVIEW ----")
+
+    return {
+        "first_page_text": all_pages_text   # full text stored under this key
+    }
+
+
+
+
+
+
+summary_service.py
+
+import os
+from urllib.parse import urlparse, unquote
+from dotenv import load_dotenv
+
+load_dotenv()
+
+AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
+
+
+def summary_require_env() -> None:
+    """Ensure required environment variables exist."""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Missing AZURE_STORAGE_CONNECTION_STRING in environment/.env")
+
+
+def new_parse_blob_url(url: str) -> tuple[str, str]:
+    """
+    Parse an Azure Blob URL and return (container_name, blob_path).
+    Example URL:
+      https://account.blob.core.windows.net/output-results/folder/name.pdf
+    Returns:
+      ("output-results", "folder/name.pdf")
+    """
+    parsed = urlparse(url)
+    if not parsed.scheme.startswith("http"):
+        raise ValueError("url must be a valid http(s) Azure Blob URL.")
+
+    path = parsed.path.lstrip("/")
+    if "/" not in path:
+        raise ValueError("url must include both container and blob path.")
+    parts = path.split("/", 1)
+    container = parts[0]
+    blob_path = parts[1]
+    return unquote(container), unquote(blob_path)
+
+
+def _parse_blob_url(url: str) -> tuple[str, str, str]:
+    """
+    Parse an Azure Blob URL and return (container_name, filename_without_ext, reference_number).
+    Example URL:
+      https://account.blob.core.windows.net/output-results/folder/name.pdf
+    Returns:
+      ("output-results", "name", "name_reference_part") 
+    
+    For your example URL: 
+      "https://agenticai1.blob.core.windows.net/attachment-downloader/19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document.pdf"
+    Returns:
+      ("attachment-downloader", "19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document", "19CDC8AB7BCC5E85")
+    """
+    parsed = urlparse(url)
+    if not parsed.scheme.startswith("http"):
+        raise ValueError("url must be a valid http(s) Azure Blob URL.")
+
+    path = parsed.path.lstrip("/")
+    if "/" not in path:
+        raise ValueError("url must include both container and blob path.")
+    
+    container, blob_path = path.split("/", 1)
+    container = unquote(container)
+    blob_path = unquote(blob_path)
+
+    # Extract filename and remove extension
+    filename_with_ext = os.path.basename(blob_path)
+    filename, _ = os.path.splitext(filename_with_ext)
+
+    # Extract reference number (assumed to be the part before first underscore)
+    if "_" not in filename:
+        raise ValueError("filename does not contain an underscore to extract reference number")
+    reference_number = filename.split("_", 1)[0]
+
+    return container, filename, reference_number
+
+
+
+summary_storage_utils.py
+
+import logging
+import os
+import aiofiles
+from azure.storage.blob.aio import BlobServiceClient
+from azure.core.exceptions import AzureError, ResourceNotFoundError
+
+from .summary_service import AZURE_STORAGE_CONNECTION_STRING, _parse_blob_url
+
+logger = logging.getLogger(__name__)
+
+Data_Raw_Text_Container_Name = "layout-detection-text-of-document"
+
+# #I commented this
+# async def download_blob_to_input_folder(blob_url: str, input_folder: str = "input") -> str:
+#     """
+#     Downloads the blob at blob_url into input_folder (root-level) preserving filename.
+#     Returns the local path to the downloaded file.
+#     """
+#     if not AZURE_STORAGE_CONNECTION_STRING:
+#         raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
+    
+#     container, blob_path = _parse_blob_url(blob_url)
+#     filename = os.path.basename(blob_path)
+#     os.makedirs(input_folder, exist_ok=True)
+#     local_path = os.path.join(input_folder, filename)
+
+#     async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as service:
+#         container_client = service.get_container_client(container)
+#         blob_client = container_client.get_blob_client(blob_path)
+#         try:
+#             await blob_client.get_blob_properties()
+#         except ResourceNotFoundError:
+#             raise FileNotFoundError(f"Blob not found: container={container} blob={blob_path}")
+#         stream = await blob_client.download_blob()
+#         data = await stream.readall()
+
+#     # write file async
+#     async with aiofiles.open(local_path, "wb") as f:
+#         await f.write(data)
+
+#     return local_path
+
+
+
+
+
+async def extract_filename_referencenumber_container_name(blob_url: str) -> str:
+    """
+    Downloads the blob at blob_url into input_folder (root-level) preserving filename.
+    Returns the local path to the downloaded file.
+    """
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
+    
+    container, filename, reference_number = _parse_blob_url(blob_url)
+
+    return container, filename, reference_number
+
+# Data_Raw_Text_Container_Name = "layout-detection-text-of-document"
+
+
+async def read_text_file_from_container(filename: str, container: str) -> str:
+    """
+    Reads the contents of a .txt file from the Azure Blob container Data_Raw_Text_Container_Name
+    corresponding to the provided filename (without extension).
+    Returns the text content of the file.
+    """
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
+
+    # filename_without_ext = os.path.splitext(filename)[0]
+    # blob_name = filename + ".txt"
+
+    # filename_without_ext = os.path.splitext(filename)[0]
+    # blob_name = filename_without_ext + ".txt"
+
+    if filename.endswith(".txt"):
+        blob_name = filename
+    else:
+        blob_name = filename + ".txt"
+
+    # blob_name = filename
+
+    async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as service:
+        container_client = service.get_container_client(container)
+        blob_client = container_client.get_blob_client(blob_name)
+        try:
+            await blob_client.get_blob_properties()
+        except ResourceNotFoundError:
+            raise FileNotFoundError(f"Blob not found in container '{Data_Raw_Text_Container_Name}': {blob_name}")
+
+        downloader = await blob_client.download_blob()
+        data = await downloader.readall()
+        return data.decode("utf-8")
+
+
+
+
+
+async def download_blob_to_input_folder_by_reference(
+    beautified_data: list,
+    output_folder: str = "email_body",
+    container_name: str = "attachment-downloader",
+    blob_name_template: str = "body_{ref}.txt",
+) -> dict:
+    """
+    Download blobs whose names are derived from reference numbers found in beautified_data.
+
+    Args:
+      beautified_data: list of dicts each containing "reference_number" (as produced by beautify_extracted_data)
+      output_folder: local folder to save downloaded email bodies
+      container_name: blob container name (default 'attachment-downloader')
+      blob_name_template: template for filename in blob storage, {ref} will be replaced by the reference number
+
+    Returns:
+      dict mapping reference_number -> {"status":"ok","path":local_path} or {"status":"error","error":msg}
+    """
+    results = {}
+
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
+
+    # collect unique references
+    refs = set()
+    for item in beautified_data or []:
+        ref = item.get("reference_number") or item.get("reference") or None
+        if ref:
+            refs.add(str(ref))
+
+    if not refs:
+        return {"status": "no_refs", "message": "No reference numbers found in beautified_data", "details": {}}
+
+    # os.makedirs(output_folder, exist_ok=True)
+
+    svc = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+
+    async with svc:
+        container_client = svc.get_container_client(container_name)
+        for ref in refs:
+            blob_name = blob_name_template.format(ref=ref)
+            # local_path = os.path.join(output_folder, blob_name)
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            output_folder = os.path.join(BASE_DIR, output_folder)
+            os.makedirs(output_folder, exist_ok=True)
+            local_path = os.path.join(output_folder, blob_name)
+            # base = os.path.dirname(os.path.abspath(__file__))
+            # output_folder = os.path.join(base, output_folder)
+            # os.makedirs(output_folder, exist_ok=True)
+            # local_path = os.path.join(output_folder, blob_name)
+
+
+            try:
+                blob_client = container_client.get_blob_client(blob_name)
+
+                # check existence
+                try:
+                    await blob_client.get_blob_properties()
+                except ResourceNotFoundError:
+                    results[ref] = {"status": "error", "error": f"Blob not found: container={container_name} blob={blob_name}"}
+                    continue
+
+                stream = await blob_client.download_blob()
+                data = await stream.readall()
+
+                # write file async
+                async with aiofiles.open(local_path, "wb") as f:
+                    await f.write(data)
+
+                results[ref] = {"status": "ok", "path": local_path}
+            except AzureError as ae:
+                logger.error("AzureError downloading blob for ref '%s': %s", ref, ae)
+                results[ref] = {"status": "error", "error": f"AzureError: {ae}"}
+            except Exception as e:
+                logger.error("Unexpected error downloading blob for ref '%s': %s", ref, e)
+                results[ref] = {"status": "error", "error": str(e)}
+
+    return {"status": "done", "details": results}
+
+
+ Data_Filler:1343 | reference_number: 19CDC8AB7BCC5E85
+2026-04-29 17:53:09 IST | INFO     | Summary_without_Excel.Data_Filler | Data_Filler:1344 | summary: Alex and Jordan Taylor are seeking home insurance for their owner-occupied residential property at 28 Seaview Terrace, Sumner, Christchurch, which was built in 1998 and has undergone renovations in 2019 and 2023. The dwelling is a two-storey timber frame with monolithic (EIFS) cladding, a Colorsteel roof re-roofed in 2019, and sits on a concrete slab foundation. The rebuild sum insured is $895,000, based on a recent Quantity Surveyor estimate that includes demolition and professional fees, with additional structures such as a detached garage, timber decks, and retaining walls. The property features recent upgrades including partial electrical rewire, plumbing system upgrade, and cladding recoating, with no deferred maintenance noted and compliance certificates attached. Risk factors include monolithic cladding, but a 2023 weathertightness report shows moisture levels within acceptable thresholds, and the location is considered low risk for flood, coastal surge, and land slip according to council maps and engineering reports. Security measures include a monitored alarm, deadbolts, keyed window stays, and CCTV, and the only claim in the past five years was a settled water damage incident in 2022.
+2026-04-29 17:53:09 IST | INFO     | Summary_without_Excel.summary_handler | summary_handler:1261 | ✅ Beautify complete: [{'reference_number': '19CDC8AB7BCC5E85', 'file_name': '19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document', 'summary': 'The submission is for a commercial property policy covering Sunflower Hotel Group LLC, operating as Cruise Resort in Daytona Beach, Florida. The resort is an eight-story, full-service facility built in 2008, featuring reinforced concrete and structural steel construction, a masonry exterior, and a built-up membrane roof partially overlaid in 2019. The site spans 4.2 acres with landscaped grounds, two outdoor pools, spa and fitness amenities, and a private dock with eight guest berths. The property comprises 240 guest rooms, including standard, one- and two-bedroom, and executive suites, with major renovations completed in 2019 (lobby, HVAC, pool decking). The total insured value is $100,000,000, with $85,000,000 allocated to buildings and structural improvements and $15,000,000 to contents and FF&E. Critical systems include a central chilled water HVAC plant (upgraded in 2019), a 2,500 kVA electrical service with emergency generator support, and full wet-pipe sprinkler fire protection. Average annual occupancy is 68%, with higher rates during November to April, and primary revenue sources are guest rooms, F&B outlets, banquets/events, spa, marina fees, and retail.'}, {'reference_number': '19CDC8AB7BCC5E85', 'file_name': '19CDC8AB7BCC5E85_attachment_Tower_Insurance_-_Home_Submission_Report', 'summary': 'Alex and Jordan Taylor are seeking home insurance for their owner-occupied residential property at 28 Seaview Terrace, Sumner, Christchurch, which was built in 1998 and has undergone renovations in 2019 and 2023. The dwelling is a two-storey timber frame with monolithic (EIFS) cladding, a Colorsteel roof re-roofed in 2019, and sits on a concrete slab foundation. The rebuild sum insured is $895,000, based on a recent Quantity Surveyor estimate that includes demolition and professional fees, with additional structures such as a detached garage, timber decks, and retaining walls. The property features recent upgrades including partial electrical rewire, plumbing system upgrade, and cladding recoating, with no deferred maintenance noted and compliance certificates attached. Risk factors include monolithic cladding, but a 2023 weathertightness report shows moisture levels within acceptable thresholds, and the location is considered low risk for flood, coastal surge, and land slip according to council maps and engineering reports. Security measures include a monitored alarm, deadbolts, keyed window stays, and CCTV, and the only claim in the past five years was a settled water damage incident in 2022.'}]
+2026-04-29 17:53:09 IST | INFO     | azure.core.pipeline.policies.http_logging_policy | _universal:511 | Request URL: 'https://agenticai1.blob.core.windows.net/attachment-downloader/body_19CDC8AB7BCC5E85.txt'
+Request method: 'HEAD'
+Request headers:
+    'x-ms-version': 'REDACTED'
+    'Accept': 'application/xml'
+    'x-ms-date': 'REDACTED'
+    'x-ms-client-request-id': '2ec0b4d2-43c6-11f1-8020-7c1e52ff7339'
+    'User-Agent': 'azsdk-python-storage-blob/12.20.0 Python/3.11.2 (Linux-6.1.0-44-cloud-amd64-x86_64-with-glibc2.36)'
+    'Authorization': 'REDACTED'
+No body was attached to the request
+2026-04-29 17:53:09 IST | INFO     | azure.core.pipeline.policies.http_logging_policy | _universal:554 | Response status: 200
+Response headers:
+    'Content-Length': '1456'
+    'Content-Type': 'application/octet-stream'
+    'Content-MD5': 'REDACTED'
+    'Last-Modified': 'Wed, 11 Mar 2026 10:57:29 GMT'
+    'Accept-Ranges': 'REDACTED'
+    'Etag': '"0x8DE7F5CFD61922F"'
+    'Vary': 'REDACTED'
+    'Server': 'Windows-Azure-Blob/1.0 Microsoft-HTTPAPI/2.0'
+    'x-ms-request-id': '629d0b44-301e-0079-49d2-d707ae000000'
+    'x-ms-client-request-id': '2ec0b4d2-43c6-11f1-8020-7c1e52ff7339'
+    'x-ms-version': 'REDACTED'
+    'x-ms-creation-time': 'REDACTED'
+    'x-ms-lease-status': 'REDACTED'
+    'x-ms-lease-state': 'REDACTED'
+    'x-ms-blob-type': 'REDACTED'
+    'x-ms-server-encrypted': 'REDACTED'
+    'x-ms-access-tier': 'REDACTED'
+    'x-ms-access-tier-inferred': 'REDACTED'
+    'Date': 'Wed, 29 Apr 2026 12:23:09 GMT'
+2026-04-29 17:53:09 IST | INFO     | azure.core.pipeline.policies.http_logging_policy | _universal:511 | Request URL: 'https://agenticai1.blob.core.windows.net/attachment-downloader/body_19CDC8AB7BCC5E85.txt'
+Request method: 'GET'
+Request headers:
+    'x-ms-range': 'REDACTED'
+    'x-ms-version': 'REDACTED'
+    'Accept': 'application/xml'
+    'x-ms-date': 'REDACTED'
+    'x-ms-client-request-id': '2ec0b4d3-43c6-11f1-8020-7c1e52ff7339'
+    'User-Agent': 'azsdk-python-storage-blob/12.20.0 Python/3.11.2 (Linux-6.1.0-44-cloud-amd64-x86_64-with-glibc2.36)'
+    'Authorization': 'REDACTED'
+No body was attached to the request
+2026-04-29 17:53:09 IST | INFO     | azure.core.pipeline.policies.http_logging_policy | _universal:554 | Response status: 206
+Response headers:
+    'Content-Length': '1456'
+    'Content-Type': 'application/octet-stream'
+    'Content-Range': 'REDACTED'
+    'Last-Modified': 'Wed, 11 Mar 2026 10:57:29 GMT'
+    'Accept-Ranges': 'REDACTED'
+    'Etag': '"0x8DE7F5CFD61922F"'
+    'Vary': 'REDACTED'
+    'Server': 'Windows-Azure-Blob/1.0 Microsoft-HTTPAPI/2.0'
+    'x-ms-request-id': '629d0b50-301e-0079-4ed2-d707ae000000'
+    'x-ms-client-request-id': '2ec0b4d3-43c6-11f1-8020-7c1e52ff7339'
+    'x-ms-version': 'REDACTED'
+    'x-ms-creation-time': 'REDACTED'
+    'x-ms-blob-content-md5': 'REDACTED'
+    'x-ms-lease-status': 'REDACTED'
+    'x-ms-lease-state': 'REDACTED'
+    'x-ms-blob-type': 'REDACTED'
+    'x-ms-server-encrypted': 'REDACTED'
+    'x-ms-access-tier': 'REDACTED'
+    'x-ms-access-tier-inferred': 'REDACTED'
+    'Date': 'Wed, 29 Apr 2026 12:23:09 GMT'
+2026-04-29 17:53:09 IST | INFO     | Summary_without_Excel.summary_handler | summary_handler:1274 | ✅ Email body download results: {'status': 'done', 'details': {'19CDC8AB7BCC5E85': {'status': 'ok', 'path': '/home/Jarvis/Musaddique/latest_JarvisAgent_2.0/Jarvis/MCP/Summary_without_Excel/email_body/body_19CDC8AB7BCC5E85.txt'}}}
+2026-04-29 17:53:09 IST | INFO     | Summary_without_Excel.summary_handler | summary_handler:1302 | 📄 Per-document summaries: 2 document(s)
+2026-04-29 17:53:10 IST | INFO     | httpx | _client:1025 | HTTP Request: GET http://phoenix-app-1772100950.eastus.azurecontainer.io:6006/v1/prompt_versions/UHJvbXB0VmVyc2lvbjoxNQ%3D%3D "HTTP/1.1 200 OK"
+2026-04-29 17:53:10 IST | INFO     | Summary_without_Excel.newsummary | newsummary:875 | [newsummary] prompt length=8582; email bodies included=True
+2026-04-29 17:53:10 IST | INFO     | Summary_without_Excel.newsummary | newsummary:880 | 🤖 LLM call: summarize_attachments | prompt_chars=8582 | model=gpt-4.1-jarvis
+2026-04-29 17:53:23 IST | INFO     | httpx | _client:1025 | HTTP Request: POST https://agenticinsuranceopenai.openai.azure.com/openai/deployments/gpt-4.1-jarvis/chat/completions?api-version=2025-01-01-preview "HTTP/1.1 200 OK"
+2026-04-29 17:53:23 IST | INFO     | Summary_without_Excel.newsummary | newsummary:890 | ✅ LLM response: summarize_attachments | response_chars=4496
+2026-04-29 17:53:23 IST | INFO     | Summary_without_Excel.summary_handler | summary_handler:1312 | ✅ Combined submission summary generated
+2026-04-29 17:53:23 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:600 | Processing summary for 19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document
+2026-04-29 17:53:24 IST | INFO     | httpx | _client:1025 | HTTP Request: GET http://phoenix-app-1772100950.eastus.azurecontainer.io:6006/v1/prompt_versions/UHJvbXB0VmVyc2lvbjoxNw%3D%3D "HTTP/1.1 200 OK"
+2026-04-29 17:53:24 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:492 | 🤖 LLM call: _call_chat_llm | prompt_chars=6255 | max_tokens=700 | model=gpt-4.1-jarvis
+2026-04-29 17:53:28 IST | INFO     | httpx | _client:1025 | HTTP Request: POST https://agenticinsuranceopenai.openai.azure.com/openai/deployments/gpt-4.1-jarvis/chat/completions?api-version=2025-01-01-preview "HTTP/1.1 200 OK"
+2026-04-29 17:53:28 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:501 | ✅ LLM response: _call_chat_llm | response_chars=3078
+2026-04-29 17:53:28 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:606 | Processed Summary completed for 19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document
+2026-04-29 17:53:28 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:600 | Processing summary for 19CDC8AB7BCC5E85_attachment_Tower_Insurance_-_Home_Submission_Report
+2026-04-29 17:53:29 IST | INFO     | httpx | _client:1025 | HTTP Request: GET http://phoenix-app-1772100950.eastus.azurecontainer.io:6006/v1/prompt_versions/UHJvbXB0VmVyc2lvbjoxNw%3D%3D "HTTP/1.1 200 OK"
+2026-04-29 17:53:29 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:492 | 🤖 LLM call: _call_chat_llm | prompt_chars=6128 | max_tokens=700 | model=gpt-4.1-jarvis
+2026-04-29 17:53:34 IST | INFO     | httpx | _client:1025 | HTTP Request: POST https://agenticinsuranceopenai.openai.azure.com/openai/deployments/gpt-4.1-jarvis/chat/completions?api-version=2025-01-01-preview "HTTP/1.1 200 OK"
+2026-04-29 17:53:34 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:501 | ✅ LLM response: _call_chat_llm | response_chars=2934
+2026-04-29 17:53:34 IST | INFO     | Summary_without_Excel.separate_summary | separate_summary:606 | Processed Summary completed for 19CDC8AB7BCC5E85_attachment_Tower_Insurance_-_Home_Submission_Report
+2026-04-29 17:53:34 IST | INFO     | Summary_without_Excel.summary_handler | summary_handler:1322 | ✅ Individual summaries generated: 2 document(s)
+2026-04-29 17:53:34 IST | INFO     | Summary_without_Excel.summary_handler | summary_handler:1339 | ✅ API response beautified
+2026-04-29 17:53:34 IST | ERROR    | Summary_without_Excel.summary_handler | summary_handler:1399 | ❌ Error processing blob data
+Traceback (most recent call last):
+  File "/home/Jarvis/Musaddique/latest_JarvisAgent_2.0/Jarvis/MCP/Summary_without_Excel/summary_handler.py", line 1391, in summarize_blob_pdfs_layout
+    if isinstance(updated_data, pd.DataFrame):
+                  ^^^^^^^^^^^^
+NameError: name 'updated_data' is not defined
+INFO:     127.0.0.1:55650 - "POST /api/v1/email_intent_agent/withoutexcel_attachment| INFO     | Summary_without_Excel.Data_Filler |
+
+
+on swagger
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "combined_summary": "SUBMISSION SUMMARY\nClient: Sunflower Hotel Group LLC (dba Cruise Resort); Alex and Jordan Taylor\nDate: Not Present\n1. SUBMISSION COVER LETTER / NARRATIVE\nExposure Description:\n- The submission includes two distinct risks: a commercial hospitality property and a residential home.\n- Sunflower Hotel Group LLC operates Cruise Resort, an eight-story, full-service resort in Daytona Beach, Florida, featuring 240 guest rooms (standard, one- and two-bedroom, executive suites), two outdoor pools, spa and fitness amenities, a private dock with eight guest berths, landscaped grounds, and multiple revenue-generating outlets (F&B, banquets/events, spa, marina, retail). The property was built in 2008 with reinforced concrete and steel construction, masonry exterior, and a built-up membrane roof (partially overlaid in 2019). Major renovations were completed in 2019 (lobby, HVAC, pool decking). Critical systems include a central chilled water HVAC plant (upgraded 2019), 2,500 kVA electrical service with emergency generator, and full wet-pipe sprinkler fire protection.\n- Alex and Jordan Taylor seek coverage for their owner-occupied residential property at 28 Seaview Terrace, Sumner, Christchurch. The home is a two-storey timber frame dwelling with monolithic (EIFS) cladding, Colorsteel roof (re-roofed 2019), concrete slab foundation, and includes a detached garage, timber decks, and retaining walls. Renovations occurred in 2019 and 2023, including partial electrical rewire, plumbing upgrade, and cladding recoating.\n- No deferred maintenance is noted for the residential property, and compliance certificates are attached.\nPlacement Strategy:\n- For Sunflower Hotel Group LLC, the placement seeks Business Interruption and Contingent Business Interruption coverage (including Extra Expense / Civil Authority where available), with a requested limit of $40,000,000 and 24 months indemnity. The submission is open to insurer presentation regarding indemnity basis and waiting period options.\n- For the residential property, the placement is for a standard home insurance policy based on a recent Quantity Surveyor estimate.\nRenewal Highlights:\n- Not Present\nChanges YOY:\n- Not Present\nAdditional Overview Details:\n- Effective Date: 2026-01-01 (for Sunflower Hotel Group LLC); Not Present (for Alex and Jordan Taylor)\n- Submission Type: New Business\n- Current Situation: Not Present\n2. LOSS HISTORY PACKAGE\n5â10 Year Loss Runs:\n- For Sunflower Hotel Group LLC: Not Present\n- For Alex and Jordan Taylor: Only one claim in the past five yearsâa settled water damage incident in 2022.\nLarge Loss Details:\n- Not Present\nTrends Analysis:\n- Not Present\nSummary of Loss History:\n- Status: Losses Reported\n- Summary: The only reported loss is a settled water damage claim for the residential property in 2022; no other loss history is provided.\n- Major Incidents: Water damage claim (2022) for the residential property; Not Present for the commercial property.\n3. EXPOSURE DATA\nCOPE Information (Construction, Occupancy, Protection, Exposure):\n- Sunflower Hotel Group LLC: Eight-story, reinforced concrete and structural steel construction, masonry exterior, built-up membrane roof (partial 2019 overlay), central chilled water HVAC, 2,500 kVA electrical with emergency generator, full wet-pipe sprinkler system, landscaped grounds, two outdoor pools, spa, fitness, private dock, 240 guest rooms, and multiple amenities.\n- Alex and Jordan Taylor: Two-storey timber frame, monolithic (EIFS) cladding, Colorsteel roof (re-roofed 2019), concrete slab, detached garage, timber decks, retaining walls, monitored alarm, deadbolts, keyed window stays, CCTV.\nStatement of Values (SOV):\n- Total Insurable Value (TIV): $100,000,000 (Sunflower Hotel Group LLC); $895,000 (Alex and Jordan Taylor)\n- Building Limit: $85,000,000 (Sunflower Hotel Group LLC); Not Present (Alex and Jordan Taylor)\n- Contents/BPP Limit: $15,000,000 (Sunflower Hotel Group LLC); Not Present (Alex and Jordan Taylor)\n- Business Income: Not Present\nFinancials:\n- Annual gross revenue: $40,000,000 (Sunflower Hotel Group LLC)\n- Annual payroll: $6,500,000 (Sunflower Hotel Group LLC)\n- Not Present (Alex and Jordan Taylor)\nCAT Worksheets / Specialty Schedules:\n- Not Present\nAdditional Exposure Details:\n- Total Locations: 1 (Sunflower Hotel Group LLC); 1 (",
+    "individualized_summary": [
+      {
+        "file_name": "19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document",
+        "summary": "The submission is for a commercial property policy covering Sunflower Hotel Group LLC, operating as Cruise Resort in Daytona Beach, Florida. The resort is an eight-story, full-service facility built in 2008, featuring reinforced concrete and structural steel construction, a masonry exterior, and a built-up membrane roof partially overlaid in 2019. The site spans 4.2 acres with landscaped grounds, two outdoor pools, spa and fitness amenities, and a private dock with eight guest berths. The property comprises 240 guest rooms, including standard, one- and two-bedroom, and executive suites, with major renovations completed in 2019 (lobby, HVAC, pool decking). The total insured value is $100,000,000, with $85,000,000 allocated to buildings and structural improvements and $15,000,000 to contents and FF&E. Critical systems include a central chilled water HVAC plant (upgraded in 2019), a 2,500 kVA electrical service with emergency generator support, and full wet-pipe sprinkler fire protection. Average annual occupancy is 68%, with higher rates during November to April, and primary revenue sources are guest rooms, F&B outlets, banquets/events, spa, marina fees, and retail.",
+        "document_type": null,
+        "processed_summary": "DOCUMENT SUMMARY\n\nINSURED DETAILS\n- Named Insured: Sunflower Hotel Group LLC (dba Cruise Resort)\n- Address: 100 Harbor View Drive, Seabreeze, Daytona Beach, Volusia, FL 32118, USA\n- Business Type: LLC\n- Operations: Full-service resort including accommodation, food & beverage, banquet/meeting, spa, fitness, retail, and limited marina services\n\nPROPERTY DETAILS\n- Number of Locations: 1\n- Construction: Reinforced concrete and structural steel frame with masonry exterior finish; concrete slab-on-grade and reinforced concrete floor decks; built-up membrane roof system (partial overlay in 2019)\n- Year Built: 2008\n- Square Footage: 198,240 sq ft (building area); 4.2 acres (site area)\n- Occupancy: 240 guest rooms (standard suites, one- and two-bedroom suites, select executive suites); average annual occupancy 68%\n- Protection Systems:\n- Full wet-pipe sprinkler system\n- Addressable fire alarm with central station monitoring\n- On-site fire pump\n- Two hydrants within 100 ft\n- Commercial kitchen hood suppression\n- Emergency lighting, illuminated exit signage, ADA egress, posted evacuation plans\n- 24/7 on-site security staff\n- Key-card access for guest room floors and restricted staff areas\n- Integrated CCTV surveillance\n- Pool lifeguard program (seasonal)\n\nCOVERAGE DETAILS\n- Line of Business: Commercial Property\n- Effective Date: 01/01/2026\n- Expiry Date: 01/01/2027\n- Limits: $6,750,000 (Primary Layer)\n- Valuation: Replacement Cost\n\nFINANCIAL DETAILS\n- Total Insured Value: $100,000,000\n- Revenue: Not Present\n- Payroll: Not Present\n- Business Income: Not Present\n\nLOSS DETAILS\n- Loss History: Not Present\n- Major Losses: Not Present\n- Trends: Not Present\n\nRISK CONSIDERATIONS\n- Key Exposures:\n- Hospitality operations with guest accommodations, food & beverage, banquets/events, spa, fitness, retail, and marina services\n- High occupancy with seasonal variation (peak Nov-Apr)\n- Presence of pools, spa, fitness center, and private dock (marina exposure)\n- Commercial kitchen operations\n- CAT Exposure: Not Present\n- Dependencies:\n- Power provider: Seabreeze Utilit\n\nUNDERWRITER NOTES\n- Key observations:\n- Modern construction (2008) with reinforced concrete and structural steel frame\n- Major renovation in 2019 (lobby, HVAC replacement, pool decking)\n- Comprehensive protection systems including sprinklers, fire alarm, emergency power, and security measures\n- Site includes landscaped grounds, pools, spa, fitness center, and marina facilities\n- Risk quality indicators:\n- Routine maintenance and PM programs for critical systems\n- Documented fire protection and life-safety measures\n- Security staff and electronic access controls\n- Emergency power and generator support for life-safety and essential loads\n- Important underwriting considerations:\n- Absence of loss history and business income information\n- High total insured value with diverse operations and exposures\n- Seasonal occupancy variation and event-driven revenue streams\n- Marina and aquatic exposures require attention to safety and compliance"
+      },
+      {
+        "file_name": "19CDC8AB7BCC5E85_attachment_Tower_Insurance_-_Home_Submission_Report",
+        "summary": "Alex and Jordan Taylor are seeking home insurance for their owner-occupied residential property at 28 Seaview Terrace, Sumner, Christchurch, which was built in 1998 and has undergone renovations in 2019 and 2023. The dwelling is a two-storey timber frame with monolithic (EIFS) cladding, a Colorsteel roof re-roofed in 2019, and sits on a concrete slab foundation. The rebuild sum insured is $895,000, based on a recent Quantity Surveyor estimate that includes demolition and professional fees, with additional structures such as a detached garage, timber decks, and retaining walls. The property features recent upgrades including partial electrical rewire, plumbing system upgrade, and cladding recoating, with no deferred maintenance noted and compliance certificates attached. Risk factors include monolithic cladding, but a 2023 weathertightness report shows moisture levels within acceptable thresholds, and the location is considered low risk for flood, coastal surge, and land slip according to council maps and engineering reports. Security measures include a monitored alarm, deadbolts, keyed window stays, and CCTV, and the only claim in the past five years was a settled water damage incident in 2022.",
+        "document_type": null,
+        "processed_summary": "DOCUMENT SUMMARY\n\nINSURED DETAILS\n- Named Insured: Alex and Jordan Taylor\n- Address: Unit 12, 15 Market Road, Epsom, Auckland 1051\n- Business Type: Not Present\n- Operations: Residential; small home office (administrative; no clients on-site)\n\nPROPERTY DETAILS\n- Number of Locations: 1\n- Construction: Timber frame with monolithic (EIFS) cladding; timber weatherboard to rear extension; Colorsteel longrun roof (re-roofed 2019); concrete slab with perimeter footings\n- Year Built: 1998 (renovations 2019, 2023)\n- Square Footage: 185 m2 (floor area); 612 m2 (land area)\n- Occupancy: Owner-occupied; 2 adults, 1 child\n- Protection Systems: Monitored alarm with perimeter sensors; deadbolts to exterior doors; keyed window stays on ground floor; 2 exterior CCTV cameras\n\nCOVERAGE DETAILS\n- Line of Business: Home Insurance\n- Effective Date: Not Present\n- Expiry Date: Not Present\n- Limits: Rebuild Sum Insured $895,000 (QS estimate dated 12 Feb 2026; includes demolition and professional fees)\n- Valuation: Quantity Surveyor rebuild estimate\n\nFINANCIAL DETAILS\n- Total Insured Value: $895,000\n- Revenue: Not Present\n- Payroll: Not Present\n- Business Income: Not Present\n\nLOSS DETAILS\n- Loss History: One claim in past 5 years (14 Jun 2022, water damage from burst flexi hose, $2,480, settled)\n- Major Losses: None reported\n- Trends: No recurring losses; single minor water damage claim\n\nRISK CONSIDERATIONS\n- Key Exposures:\n- Monolithic (EIFS) cladding to main elevations (non-standard risk)\n- Proximity to coast (approx. 600 m); wind-driven rain exposure considered in maintenance\n- Retaining walls (approx. 25 m cumulative length; engineering report available)\n- Small home office (administrative only; no client visits)\n- CAT Exposure:\n- Earthquake: Christchurch location; post-1990s construction; standard foundation; no known EQ damage\n- Flood/Overland Flow: Elevated above street level; council maps indicate low risk\n- Coastal/Storm Surge: Considered in maintenance; LIM report attached\n- Land Slip/Erosion: No known slip history; geotechnical note for retaining walls attached\n- Dependencies: Not Present\n\nUNDERWRITER NOTES\n- Key observations:\n- Monolithic cladding is proactively maintained; 2023 weathertightness report confirms moisture readings within acceptable thresholds\n- All renovations and upgrades are consented and documented; no unconsented works\n- Owners have established annual maintenance inspections and logs\n- Security features include monitored alarm, deadbolts, keyed window stays, and CCTV\n- Risk quality indicators:\n- Recent renovations (2019, 2023) and upgrades to roof, electrical, plumbing, and heating systems\n- No deferred maintenance noted; gutters and downpipes serviced Nov 2025\n- Detached garage, timber decks, and retaining walls included in sum insured\n- Important underwriting considerations:\n- Non-standard monolithic cladding requires special terms consideration"
+      }
+    ],
+    "Data_Filler": [
+      {
+        "reference_number": "19CDC8AB7BCC5E85",
+        "submission_summary": "SUBMISSION SUMMARY\nClient: Sunflower Hotel Group LLC (dba Cruise Resort); Alex and Jordan Taylor\nDate: Not Present\n1. SUBMISSION COVER LETTER / NARRATIVE\nExposure Description:\n- The submission includes two distinct risks: a commercial hospitality property and a residential home.\n- Sunflower Hotel Group LLC operates Cruise Resort, an eight-story, full-service resort in Daytona Beach, Florida, featuring 240 guest rooms (standard, one- and two-bedroom, executive suites), two outdoor pools, spa and fitness amenities, a private dock with eight guest berths, landscaped grounds, and multiple revenue-generating outlets (F&B, banquets/events, spa, marina, retail). The property was built in 2008 with reinforced concrete and steel construction, masonry exterior, and a built-up membrane roof (partially overlaid in 2019). Major renovations were completed in 2019 (lobby, HVAC, pool decking). Critical systems include a central chilled water HVAC plant (upgraded 2019), 2,500 kVA electrical service with emergency generator, and full wet-pipe sprinkler fire protection.\n- Alex and Jordan Taylor seek coverage for their owner-occupied residential property at 28 Seaview Terrace, Sumner, Christchurch. The home is a two-storey timber frame dwelling with monolithic (EIFS) cladding, Colorsteel roof (re-roofed 2019), concrete slab foundation, and includes a detached garage, timber decks, and retaining walls. Renovations occurred in 2019 and 2023, including partial electrical rewire, plumbing upgrade, and cladding recoating.\n- No deferred maintenance is noted for the residential property, and compliance certificates are attached.\nPlacement Strategy:\n- For Sunflower Hotel Group LLC, the placement seeks Business Interruption and Contingent Business Interruption coverage (including Extra Expense / Civil Authority where available), with a requested limit of $40,000,000 and 24 months indemnity. The submission is open to insurer presentation regarding indemnity basis and waiting period options.\n- For the residential property, the placement is for a standard home insurance policy based on a recent Quantity Surveyor estimate.\nRenewal Highlights:\n- Not Present\nChanges YOY:\n- Not Present\nAdditional Overview Details:\n- Effective Date: 2026-01-01 (for Sunflower Hotel Group LLC); Not Present (for Alex and Jordan Taylor)\n- Submission Type: New Business\n- Current Situation: Not Present\n2. LOSS HISTORY PACKAGE\n5â10 Year Loss Runs:\n- For Sunflower Hotel Group LLC: Not Present\n- For Alex and Jordan Taylor: Only one claim in the past five yearsâa settled water damage incident in 2022.\nLarge Loss Details:\n- Not Present\nTrends Analysis:\n- Not Present\nSummary of Loss History:\n- Status: Losses Reported\n- Summary: The only reported loss is a settled water damage claim for the residential property in 2022; no other loss history is provided.\n- Major Incidents: Water damage claim (2022) for the residential property; Not Present for the commercial property.\n3. EXPOSURE DATA\nCOPE Information (Construction, Occupancy, Protection, Exposure):\n- Sunflower Hotel Group LLC: Eight-story, reinforced concrete and structural steel construction, masonry exterior, built-up membrane roof (partial 2019 overlay), central chilled water HVAC, 2,500 kVA electrical with emergency generator, full wet-pipe sprinkler system, landscaped grounds, two outdoor pools, spa, fitness, private dock, 240 guest rooms, and multiple amenities.\n- Alex and Jordan Taylor: Two-storey timber frame, monolithic (EIFS) cladding, Colorsteel roof (re-roofed 2019), concrete slab, detached garage, timber decks, retaining walls, monitored alarm, deadbolts, keyed window stays, CCTV.\nStatement of Values (SOV):\n- Total Insurable Value (TIV): $100,000,000 (Sunflower Hotel Group LLC); $895,000 (Alex and Jordan Taylor)\n- Building Limit: $85,000,000 (Sunflower Hotel Group LLC); Not Present (Alex and Jordan Taylor)\n- Contents/BPP Limit: $15,000,000 (Sunflower Hotel Group LLC); Not Present (Alex and Jordan Taylor)\n- Business Income: Not Present\nFinancials:\n- Annual gross revenue: $40,000,000 (Sunflower Hotel Group LLC)\n- Annual payroll: $6,500,000 (Sunflower Hotel Group LLC)\n- Not Present (Alex and Jordan Taylor)\nCAT Worksheets / Specialty Schedules:\n- Not Present\nAdditional Exposure Details:\n- Total Locations: 1 (Sunflower Hotel Group LLC); 1 (",
+        "document_summary": "file_name: 19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document\nprocessed_summary:\nDOCUMENT SUMMARY\n\nINSURED DETAILS\n- Named Insured: Sunflower Hotel Group LLC (dba Cruise Resort)\n- Address: 100 Harbor View Drive, Seabreeze, Daytona Beach, Volusia, FL 32118, USA\n- Business Type: LLC\n- Operations: Full-service resort including accommodation, food & beverage, banquet/meeting, spa, fitness, retail, and limited marina services\n\nPROPERTY DETAILS\n- Number of Locations: 1\n- Construction: Reinforced concrete and structural steel frame with masonry exterior finish; concrete slab-on-grade and reinforced concrete floor decks; built-up membrane roof system (partial overlay in 2019)\n- Year Built: 2008\n- Square Footage: 198,240 sq ft (building area); 4.2 acres (site area)\n- Occupancy: 240 guest rooms (standard suites, one- and two-bedroom suites, select executive suites); average annual occupancy 68%\n- Protection Systems:\n- Full wet-pipe sprinkler system\n- Addressable fire alarm with central station monitoring\n- On-site fire pump\n- Two hydrants within 100 ft\n- Commercial kitchen hood suppression\n- Emergency lighting, illuminated exit signage, ADA egress, posted evacuation plans\n- 24/7 on-site security staff\n- Key-card access for guest room floors and restricted staff areas\n- Integrated CCTV surveillance\n- Pool lifeguard program (seasonal)\n\nCOVERAGE DETAILS\n- Line of Business: Commercial Property\n- Effective Date: 01/01/2026\n- Expiry Date: 01/01/2027\n- Limits: $6,750,000 (Primary Layer)\n- Valuation: Replacement Cost\n\nFINANCIAL DETAILS\n- Total Insured Value: $100,000,000\n- Revenue: Not Present\n- Payroll: Not Present\n- Business Income: Not Present\n\nLOSS DETAILS\n- Loss History: Not Present\n- Major Losses: Not Present\n- Trends: Not Present\n\nRISK CONSIDERATIONS\n- Key Exposures:\n- Hospitality operations with guest accommodations, food & beverage, banquets/events, spa, fitness, retail, and marina services\n- High occupancy with seasonal variation (peak Nov-Apr)\n- Presence of pools, spa, fitness center, and private dock (marina exposure)\n- Commercial kitchen operations\n- CAT Exposure: Not Present\n- Dependencies:\n- Power provider: Seabreeze Utilit\n\nUNDERWRITER NOTES\n- Key observations:\n- Modern construction (2008) with reinforced concrete and structural steel frame\n- Major renovation in 2019 (lobby, HVAC replacement, pool decking)\n- Comprehensive protection systems including sprinklers, fire alarm, emergency power, and security measures\n- Site includes landscaped grounds, pools, spa, fitness center, and marina facilities\n- Risk quality indicators:\n- Routine maintenance and PM programs for critical systems\n- Documented fire protection and life-safety measures\n- Security staff and electronic access controls\n- Emergency power and generator support for life-safety and essential loads\n- Important underwriting considerations:\n- Absence of loss history and business income information\n- High total insured value with diverse operations and exposures\n- Seasonal occupancy variation and event-driven revenue streams\n- Marina and aquatic exposures require attention to safety and compliance\n\nfile_name: 19CDC8AB7BCC5E85_attachment_Tower_Insurance_-_Home_Submission_Report\nprocessed_summary:\nDOCUMENT SUMMARY\n\nINSURED DETAILS\n- Named Insured: Alex and Jordan Taylor\n- Address: Unit 12, 15 Market Road, Epsom, Auckland 1051\n- Business Type: Not Present\n- Operations: Residential; small home office (administrative; no clients on-site)\n\nPROPERTY DETAILS\n- Number of Locations: 1\n- Construction: Timber frame with monolithic (EIFS) cladding; timber weatherboard to rear extension; Colorsteel longrun roof (re-roofed 2019); concrete slab with perimeter footings\n- Year Built: 1998 (renovations 2019, 2023)\n- Square Footage: 185 m2 (floor area); 612 m2 (land area)\n- Occupancy: Owner-occupied; 2 adults, 1 child\n- Protection Systems: Monitored alarm with perimeter sensors; deadbolts to exterior doors; keyed window stays on ground floor; 2 exterior CCTV cameras\n\nCOVERAGE DETAILS\n- Line of Business: Home Insurance\n- Effective Date: Not Present\n- Expiry Date: Not Present\n- Limits: Rebuild Sum Insured $895,000 (QS estimate dated 12 Feb 2026; includes demolition and professional fees)\n- Valuation: Quantity Surveyor rebuild estimate\n\nFINANCIAL DETAILS\n- Total Insured Value: $895,000\n- Revenue: Not Present\n- Payroll: Not Present\n- Business Income: Not Present\n\nLOSS DETAILS\n- Loss History: One claim in past 5 years (14 Jun 2022, water damage from burst flexi hose, $2,480, settled)\n- Major Losses: None reported\n- Trends: No recurring losses; single minor water damage claim\n\nRISK CONSIDERATIONS\n- Key Exposures:\n- Monolithic (EIFS) cladding to main elevations (non-standard risk)\n- Proximity to coast (approx. 600 m); wind-driven rain exposure considered in maintenance\n- Retaining walls (approx. 25 m cumulative length; engineering report available)\n- Small home office (administrative only; no client visits)\n- CAT Exposure:\n- Earthquake: Christchurch location; post-1990s construction; standard foundation; no known EQ damage\n- Flood/Overland Flow: Elevated above street level; council maps indicate low risk\n- Coastal/Storm Surge: Considered in maintenance; LIM report attached\n- Land Slip/Erosion: No known slip history; geotechnical note for retaining walls attached\n- Dependencies: Not Present\n\nUNDERWRITER NOTES\n- Key observations:\n- Monolithic cladding is proactively maintained; 2023 weathertightness report confirms moisture readings within acceptable thresholds\n- All renovations and upgrades are consented and documented; no unconsented works\n- Owners have established annual maintenance inspections and logs\n- Security features include monitored alarm, deadbolts, keyed window stays, and CCTV\n- Risk quality indicators:\n- Recent renovations (2019, 2023) and upgrades to roof, electrical, plumbing, and heating systems\n- No deferred maintenance noted; gutters and downpipes serviced Nov 2025\n- Detached garage, timber decks, and retaining walls included in sum insured\n- Important underwriting considerations:\n- Non-standard monolithic cladding requires special terms consideration",
+        "created_at": "2026-04-29T12:23:34.232797",
+        "Table_name": "agent_submission_intake"
+      }
+    ],
+    "excel_update_status": "name 'updated_data' is not defined"
+  }
 }
 
 
-⸻
 
-🧠 What you achieved
 
-✔ Same behavior as Excel
-✔ One row per submission
-✔ Clean MCP contract
-✔ DB fully decoupled
-✔ No duplicate document rows
 
-⸻
 
-⚠️ Next thing you WILL hit
 
-Right now:
 
-👉 Same reference_number → multiple inserts (duplicates)
 
-Next step (very important):
-	•	UPSERT instead of INSERT
-	•	Avoid duplicates
-	•	Update existing summaries
 
-⸻
 
-If you want, I’ll show you production-grade upsert logic next 👍
+

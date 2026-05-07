@@ -1,1388 +1,674 @@
-Data_Filler.py
-
-import logging
+db.py
 import os
-import json
-import pandas as pd
-from io import BytesIO
-from azure.storage.blob import BlobServiceClient
-from typing import List, Dict, Any
-from .summary_service import summary_require_env
-from .summary_service import AZURE_STORAGE_CONNECTION_STRING, _parse_blob_url,new_parse_blob_url
-import re
-from typing import Iterable
-
-logger = logging.getLogger(__name__)
-
-
-
-
-def extract_filenames_and_summaries(output_folder: str) -> List[Dict[str, Any]]:
-    """
-    Extracts file names, summaries, and raw text from the JSON file in the output folder.
-
-    Returns list of:
-      {
-        "file_name": "<file_name>",
-        "summary": "<summary>",
-        "text": "<full_text_or_first_page_text>"
-      }
-    """
-   
-    result_file = os.path.join(output_folder, "layout_summaries_result.json")
-    # base = os.path.dirname(os.path.abspath(__file__))
-    # result_file = os.path.join(base, output_folder, "layout_summaries_result.json")
-
-
-    if not os.path.exists(result_file):
-        raise FileNotFoundError(f"No JSON result file found at {result_file}")
-
-    with open(result_file, "r", encoding="utf-8") as f:
-        data = json.load(f) 
-
-    summaries = data.get("summaries", [])
-
-#Working code
-    # extracted_data = [
-    #     {
-    #         "file_name": item["file_name"],
-    #         "summary": item["summary"],
-    #         "text": item.get("text", "")  # <-- thisismyNEW: raw text stored here
-    #     }
-    #     for item in summaries
-    #     if "file_name" in item and "summary" in item
-    # ]
-
-    extracted_data = []
-    for item in summaries:
-        file_name = item.get("file_name")
-        summary = item.get("summary")
-        text = item.get("text","")
-        # If summary missing → generate fallback summary
-        if not summary and text:
-            summary = text[:800]   # fallback so LLM still gets data
-        extracted_data.append(
-            {
-                "file_name": file_name,
-                "summary": summary,
-                "text": text
-            }
-        )
-    
-    return extracted_data
-
-#Absolute working code 
-def beautify_extracted_data(extracted_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Beautifies and prints the extracted data in the desired format.
-    NOTE: we do NOT include 'text' here, only file_name + summary + reference_number.
-    """
-    beautified_data: List[Dict[str, Any]] = []
-
-    for item in extracted_data:
-        file_name = item["file_name"]
-        reference_number = file_name.split("_")[0]
-
-        beautified_item = {
-            "reference_number": reference_number,
-            "file_name": file_name,
-            "summary": item["summary"],
-        }
-        beautified_data.append(beautified_item)
-
-        logger.info("file_name: %s", file_name)
-        logger.info("reference_number: %s", reference_number)
-        logger.info("summary: %s", item['summary'])
-
-    return beautified_data
-
-
-#Absolute working code
-# def connect_to_blob(blob_url: str, beautified_data: List[Dict[str, Any]]):
-#     """
-#     Update existing rows in the Excel blob by concatenating file_name + summary
-#     into the Summary cell for matching 'Unique refrence Number'.
-#     Does NOT create new rows if there is no match.
-#     """
-#     try:
-#         summary_require_env()
-#     except Exception as e:
-#         return {"status": False, "error": f"Environment misconfigured: {e}"}
-
-#     if not AZURE_STORAGE_CONNECTION_STRING:
-#         raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
-
-#     try:
-#         container, blob_path = _parse_blob_url(blob_url)
-#     except Exception as e:
-#         return {"status": False, "error": f"Unable to parse blob URL: {e}"}
-
-#     try:
-#         blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-#         blob_client = blob_service_client.get_blob_client(container=container, blob=blob_path)
-
-#         blob_data = blob_client.download_blob().readall()
-#         excel_data = pd.read_excel(BytesIO(blob_data))
-
-#         if "Unique refrence Number" not in excel_data.columns:
-#             return {"status": False, "error": "'Unique refrence Number' column is missing in the Excel file."}
-
-#         if "Summary" not in excel_data.columns:
-#             excel_data["Summary"] = None
-
-#         for item in beautified_data:
-#             reference_number = item.get("reference_number")
-#             file_name = item.get("file_name", "")
-#             summary_text = item.get("summary", "")
-
-#             matches = excel_data[excel_data["Unique refrence Number"] == reference_number].index
-
-#             if matches.empty:
-#                 print(f"Reference number not found in Excel, skipping: {reference_number}")
-#                 continue
-
-#             new_fragment = f"file_name: {file_name}\nsummary: {summary_text}"
-
-#             for idx in matches:
-#                 existing = excel_data.at[idx, "Summary"]
-#                 if existing is not None and not pd.isna(existing):
-#                     updated = f"{existing}\n\n{new_fragment}"
-#                 else:
-#                     updated = new_fragment
-#                 excel_data.at[idx, "Summary"] = updated
-
-#         output_stream = BytesIO()
-#         excel_data.to_excel(output_stream, index=False, engine="openpyxl")
-#         output_stream.seek(0)
-#         blob_client.upload_blob(output_stream, overwrite=True)
-
-#         return excel_data
-
-#     except Exception as e:
-#         return {"status": False, "error": f"Failed to process blob: {e}"}
-
-
-
-
-
-
-
-
-
-
-
-
-def connect_to_blob(blob_url: str, beautified_payload: Dict[str, Any]):
-    """
-    Update Excel blob using the NEW beautified payload format (dict).
-
-    Expected beautified_payload shape:
-    {
-      "combined_summary": "<string or None>",
-      "individualized_summary": [
-         {
-           "file_name": "...",
-           "summary": "...",                # (not used here)
-           "document_type": "...",          # (optional)
-           "processed_summary": "..."       # used for Document Summary
-         }, ...
-      ]
-    }
-
-    Behavior:
-      - For each reference (derived from file_name: <REF>_...), find rows where
-        excel["Unique refrence Number"] == ref.
-      - Overwrite "Submission Summary" on those rows with combined_summary (if provided).
-      - Overwrite "Document Summary" on those rows with a single cell value that is the
-        concatenation (joined by two newlines) of:
-           "file_name: <file_name>\nprocessed_summary:\n<processed_summary>"
-        for all files belonging to that reference.
-      - Does NOT create new rows. If no match is found for a reference, we skip it.
-      - Returns updated pandas.DataFrame on success, or {"status": False, "error": "..."}.
-    """
-    try:
-        summary_require_env()
-    except Exception as e:
-        return {"status": False, "error": f"Environment misconfigured: {e}"}
-
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        return {"status": False, "error": "AZURE_STORAGE_CONNECTION_STRING not set"}
-
-    # parse blob URL into container + path
-    try:
-        container, blob_path = new_parse_blob_url(blob_url)
-    except Exception as e:
-        return {"status": False, "error": f"Unable to parse blob URL: {e}"}
-
-    try:
-        svc = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-        blob_client = svc.get_blob_client(container=container, blob=blob_path)
-
-        # download excel into memory
-        blob_bytes = blob_client.download_blob().readall()
-        excel_df = pd.read_excel(BytesIO(blob_bytes))
-
-        # required reference column
-        if "Unique refrence Number" not in excel_df.columns:
-            return {"status": False, "error": "'Unique refrence Number' column is missing in the Excel file."}
-
-        # ensure target columns exist (create if missing)
-        if "Submission Summary" not in excel_df.columns:
-            excel_df["Submission Summary"] = None
-        if "Document Summary" not in excel_df.columns:
-            excel_df["Document Summary"] = None
-
-        combined_summary = beautified_payload.get("combined_summary")
-        individualized = beautified_payload.get("individualized_summary", [])
-
-        # Build mapping ref -> list of aggregated doc strings
-        ref_to_entries = {}
-        for item in individualized:
-            fname = item.get("file_name") or ""
-            processed = item.get("processed_summary") or ""
-
-            if not fname:
-                # skip entries without filename
-                continue
-
-            # Expect filename format "<REF>_..."; if missing underscore, skip (defensive)
-            if "_" not in fname:
-                logger.warning("[connect_to_blob] skipping filename with unexpected format: %s", fname)
-                continue
-
-            ref = fname.split("_", 1)[0]
-            entry_text = f"file_name: {fname}\nprocessed_summary:\n{processed}".strip()
-            ref_to_entries.setdefault(ref, []).append(entry_text)
-
-        # For each reference, write aggregated values into matching rows
-        #below was commented just now
-        for ref, entries in ref_to_entries.items():
-            matches = excel_df[excel_df["Unique refrence Number"] == ref].index
-            if matches.empty:
-                # no matching reference in sheet — skip without creating rows
-                logger.warning("[connect_to_blob] reference not found in Excel, skipping: %s", ref)
-                continue
-
-#Added below logic
-            # any_match_found = False
-            # for ref, entries in ref_to_entries.items():
-            #     matches = excel_df[excel_df["Unique refrence Number"] == ref].index
-            #     if matches.empty:
-            #         print(f"[connect_to_blob] reference not found in Excel: {ref}")
-            #         continue
-            # any_match_found = True
-
-            # Join all entries for this reference into one cell value
-            document_summary_cell = "\n\n".join(entries).strip()
-
-            for idx in matches:
-                # Overwrite Submission summary if combined_summary provided; else leave as None
-                if combined_summary:
-                    excel_df.at[idx, "Submission Summary"] = combined_summary
-                else:
-                    excel_df.at[idx, "Submission Summary"] = None
-
-                # Overwrite Document summary with aggregated cell
-                excel_df.at[idx, "Document Summary"] = document_summary_cell
-
-
-# #added just now
-#         if not any_match_found:
-#             return {
-#                 "status": False,
-#                 "error": "No matching reference numbers found in Excel"
-#             }
-
-        # save updated excel back to blob (overwrite)
-        out_stream = BytesIO()
-        excel_df.to_excel(out_stream, index=False, engine="openpyxl")
-        out_stream.seek(0)
-        blob_client.upload_blob(out_stream, overwrite=True)
-
-        return excel_df
-
-    except Exception as e:
-        return {"status": False, "error": f"Failed to process blob: {e}"}
-
-
-
-
-
-        
-
-
-
-
-def normalize_text(s: str) -> str:
-    """
-    Clean and normalize an LLM-produced string:
-    - Replace escaped unicode sequences like '\\u2714' with '✔' (or remove)
-    - Replace repeated newlines with single newline
-    - Trim leading/trailing whitespace on each line and collapse multiple spaces
-    - Remove stray carriage returns
-    """
-    if not s:
-        return s
-    # if the string contains literal backslash-u (e.g. "\\u2714") turn into the actual char
-    try:
-        # decode unicode-escapes (only when safe) — but avoid double-decoding valid unicode
-        # This will transform "\\u2714" into "✔"
-        s = s.encode("utf-8").decode("unicode_escape")
-    except Exception:
-        # fallback: ignore decoding errors
-        pass
-
-    # Convert any ✔ variants (some LLMs produce unicode check) to a single visible symbol
-    s = s.replace("\u2714", "✔")
-    s = s.replace("\\u2714", "✔")  # literal backslash-u
-
-    # Normalize line endings & whitespace
-    s = s.replace("\r\n", "\n").replace("\r", "\n")
-    # collapse multiple blank lines to single
-    s = re.sub(r"\n\s*\n+", "\n\n", s)
-    # trim trailing spaces on each line
-    s = "\n".join([ln.strip() for ln in s.split("\n")])
-    # collapse more-than-two spaces
-    s = re.sub(r"[ ]{2,}", " ", s)
-    # final strip
-    return s.strip()
-
-
-
-
-def beautify_api_response(cleaned_payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Take cleaned_payload (the dict you return to API) and produce a
-    more human-friendly 'beautified' structure for display or Excel upload.
-
-    Input shape:
-      {
-        "combined_summary": "<string>",
-        "individualized_summary": [
-          {"file_name": ..., "summary": ..., "document_type": ..., "processed_summary": ...},
-          ...
-        ]
-      }
-
-    Output shape (dict):
-      {
-        "combined_summary": "<normalized multi-line string>",
-        "individualized_summary": [
-           {
-             "file_name": "<filename>",
-             "summary": "<normalized single-paragraph summary>",
-             "document_type": "<ACORD|Loss Run|SOV>",
-             "processed_summary": "<normalized multi-line narrative>"
-           },
-           ...
-        ]
-      }
-
-    This function **does not** return 'text' or raw LLM outputs with \n escapes.
-    """
-    out = {"combined_summary": None, "individualized_summary": []}
-
-    combined = cleaned_payload.get("combined_summary")
-    out["combined_summary"] = normalize_text(combined) if combined else None
-
-    indiv = cleaned_payload.get("individualized_summary", [])
-    beautified_list = []
-    if isinstance(indiv, Iterable):
-        for item in indiv:
-            # defensive: ensure keys exist
-            file_name = item.get("file_name")
-            summary = item.get("summary")
-            doc_type = item.get("document_type")
-            processed = item.get("processed_summary")
-
-            beautified_item = {
-                "file_name": file_name,
-                "summary": normalize_text(summary) if summary else None,
-                "document_type": doc_type,
-                "processed_summary": normalize_text(processed) if processed else None,
-            }
-            beautified_list.append(beautified_item)
-
-    out["individualized_summary"] = beautified_list
-    return out
-
-
-# newsummary.py
-import logging
+from sqlmodel import create_engine
+from sqlalchemy.pool import NullPool
 from dotenv import load_dotenv
-import os
-from typing import List, Dict, Optional
-from openai import AzureOpenAI
-from common.phoenix_prompt import build_prompt
-
-
-logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
 
-if not (
-    AZURE_OPENAI_ENDPOINT
-    and AZURE_OPENAI_API_VERSION
-    and AZURE_OPENAI_API_KEY
-    and AZURE_OPENAI_CHAT_DEPLOYMENT
-):
-    raise RuntimeError("Azure OpenAI env vars missing.")
+def get_engine():
+    return create_engine(
+        f"postgresql+psycopg://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}"
+        f"@{os.getenv('PGHOST')}:{os.getenv('PGPORT', '5432')}/{os.getenv('PGDATABASE')}",
+        poolclass=NullPool,
+        # pool_pre_ping= True,
+        echo=False
+    )
 
-client = AzureOpenAI(
-    api_key=AZURE_OPENAI_API_KEY,
-    api_version=AZURE_OPENAI_API_VERSION,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+
+
+
+
+handler.py
+
+from service import database_filler
+from service import process_database
+async def database_filler_start(result:dict):
+   try:
+       rows = await database_filler(result)
+   except Exception as e:
+       return {
+           "status":False,
+           "error":str(e)
+       }
+   try:
+       db_result = process_database(rows)
+   except Exception as e:
+       return {
+           "status":False,
+           "error":str(e)
+       }
+   return {
+       "status":True,
+       "result":db_result
+   }
+
+main.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi_mcp import FastApiMCP
+import uvicorn
+import models
+from router import router as file_router
+
+def apply_cors(app: FastAPI):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+def create_sub_app(title: str, description: str, version: str = "0.1.0") -> FastAPI:
+    sub = FastAPI(title=title, description=description, version=version)
+    apply_cors(sub)
+    return sub
+
+
+app = FastAPI()
+apply_cors(app)
+
+file_app = create_sub_app(
+    title="Licensing_and_Sanction_Checker_MCP",
+    description="Receives JSON blob URL from Data Extraction Agent and compares extracted name with local sanctions CSV."
 )
+file_app.include_router(file_router)
+
+# Expose ONLY this operation id via MCP HTTP (client will use transport='http')
+FastApiMCP(file_app, include_operations=["Licensing_&_Sanction_Checker_MCP"]).mount_http()
+
+# Mount the sub-app under this prefix (keep as-is per your request)
+app.mount("/api/v1/eligibility_agent", file_app)
 
 
-def extract_refs_from_attachments(attachments: List[Dict]) -> List[str]:
-    """Return unique refs from filenames (text before first underscore)."""
-    refs = []
-    for item in attachments or []:
-        fname = item.get("file_name", "") or ""
-        if "_" in fname:
-            refs.append(fname.split("_", 1)[0])
-    # keep unique in original order
-    seen = set()
-    out = []
-    for r in refs:
-        if r not in seen:
-            seen.add(r)
-            out.append(r)
-    return out
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=4751)
 
 
-def load_raw_email_bodies_for_refs(refs: List[str], email_body_folder: str = "email_body") -> Dict[str, Dict]:
-    """
-    Load raw files named `body_<ref>.txt` from email_body_folder.
-    Returns dict: ref -> {"status": "ok", "path": ..., "raw": "<full text>"} or {"status":"missing"}.
-    """
-    base = os.path.dirname(os.path.abspath(__file__))
-    out = {}
-    for ref in refs or []:
-        fname = f"body_{ref}.txt"
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        EMAIL_BODY_DIR = os.path.join(BASE_DIR, "email_body")
-        path = os.path.join(EMAIL_BODY_DIR, fname)
-        # path = os.path.join(base, email_body_folder, fname)
-        if not os.path.exists(path):
-            out[ref] = {"status": "missing", "path": path}
-            continue
-        try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                raw = f.read()
-            out[ref] = {"status": "ok", "path": path, "raw": raw}
-        except Exception as e:
-            out[ref] = {"status": "error", "path": path, "error": str(e)}
-    return out
+mapper.py
+from models import AgentEligibility, AgentRiskDomainA, AgentRiskDomainB, AgentRiskDomainC, AgentRiskDomainD, AgentRiskDomainE, AgentRiskDomainF, AgentSubmissionIntake
+
+TABLE_MODEL_MAP = {
+    "agent_eligibility" : AgentEligibility,
+    "DomainA" : AgentRiskDomainA,
+    "DomainB" : AgentRiskDomainB,
+    "DomainC" : AgentRiskDomainC,
+    "DomainD" : AgentRiskDomainD,
+    "DomainE" : AgentRiskDomainE,
+    "DomainF" : AgentRiskDomainF,
+    "agent_submission_intake": AgentSubmissionIntake,
+
+}
 
 
-def summarize_attachments(
-    attachments: List[Dict],
-    email_bodies: Optional[Dict[str, Dict]] = None,
-    include_email_bodies_in_prompt: bool = True,
-) -> str:
-    """
-    Build combined submission summary.
-
-    Args:
-      attachments: list of {"file_name":..., "summary":..., "text":...}
-      email_bodies: optional dict mapping ref -> {"status": "ok", "raw": "..."}.
-                    If None, this function will attempt to load local files body_<ref>.txt.
-      include_email_bodies_in_prompt: whether to include email bodies block in prompt.
-
-    Returns:
-      Combined summary string from LLM (or an informative error string on failure).
-    """
-    # build attachments text (single pass — no duplication)
-    attachment_chunks = []
-    for item in attachments or []:
-        file_name = item.get("file_name", "unknown_file")
-        summary_text = item.get("summary", "") or ""
-        chunk = f"FILENAME: {file_name}\nSUMMARY: {summary_text}"
-        attachment_chunks.append(chunk)
-    attachments_text = "\n\n".join(attachment_chunks)
-    attachments_text = attachments_text[:8000]  # safety limit
-
-    # load email bodies if not provided
-    if email_bodies is None:
-        refs = extract_refs_from_attachments(attachments)
-        email_bodies = load_raw_email_bodies_for_refs(refs)
-
-    # build email bodies text block (compact)
-    email_chunks = []
-    if include_email_bodies_in_prompt and isinstance(email_bodies, dict):
-        for ref, meta in (email_bodies or {}).items():
-            if meta.get("status") == "ok":
-                raw = meta.get("raw", "") or ""
-                snippet = raw[:3000]  # keep reasonable amount
-                email_chunks.append(f"REFERENCE: {ref}\nRAW_EMAIL_BODY:\n{snippet}")
-    email_bodies_text = "\n\n---\n\n".join(email_chunks)
-    if email_bodies_text and len(email_bodies_text) > 6000:
-        email_bodies_text = email_bodies_text[:6000] + "\n[TRUNCATED]"
+models.py
 
 
+from sqlmodel import SQLModel, Field, Column
+
+from sqlalchemy import String, Boolean, TIMESTAMP, Integer
+
+from typing import Optional
+
+from datetime import datetime
 
 
+class AgentEligibility(SQLModel, table=True):
 
-    prompt = build_prompt(
+    __tablename__ = "agent_eligibility"
 
-        "UHJvbXB0VmVyc2lvbjoxNQ==",
+    # id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(
+    default=None,
+    sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+    )
 
-        attachments_text=attachments_text,
+    reference_number: Optional[str] = Field(
 
-        email_bodies_text=email_bodies_text
+        sa_column=Column("reference_number", String, nullable=True)
 
     )
 
-    
+    eligibility_status: Optional[str] = Field(
 
-    # debug info to help you debug when running
-    try:
-        logger.info("[newsummary] prompt length=%d; email bodies included=%s", len(prompt), bool(email_chunks))
-    except Exception as e:
-        logger.warning("[newsummary] Could not log prompt debug info: %s", e)
+        sa_column=Column("eligibility_status", String, nullable=True)
 
-    # Call the LLM — catch and return error text if it fails
-    logger.info("🤖 LLM call: summarize_attachments | prompt_chars=%d | model=%s",
-                len(prompt), AZURE_OPENAI_CHAT_DEPLOYMENT)
-    try:
-        response = client.chat.completions.create(
-            model=AZURE_OPENAI_CHAT_DEPLOYMENT,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1024,
-            temperature=0.2,
-        )
-        result = response.choices[0].message.content.strip()
-        logger.info("✅ LLM response: summarize_attachments | response_chars=%d", len(result))
-        return result
-    except Exception as e:
-        # Return the error string so the handler won't silently make combined_summary null
-        err = f"[LLM_ERROR] {type(e).__name__}: {e}"
-        logger.error(err)
-        return err
+    )
+
+    eligibility_check_date_time: Optional[datetime] = Field(
+
+        sa_column=Column("eligibility_check_date_time", TIMESTAMP, nullable=True)
+
+    )
+
+    reason_summary: Optional[str] = Field(
+
+        sa_column=Column("reason_summary", String, nullable=True)
+
+    )
+
+    line_of_business: Optional[str] = Field(
+
+        sa_column=Column("line_of_business", String, nullable=True)
+
+    )
+
+    location_risk_zone: Optional[str] = Field(
+
+        sa_column=Column("location_risk_zone", String, nullable=True)
+
+    )
+
+    business_type: Optional[str] = Field(
+
+        sa_column=Column("business_type", String, nullable=True)
+
+    )
+
+    licensing_sanction_check: Optional[str] = Field(
+
+        sa_column=Column("licensing_sanction_check", String, nullable=True)
+
+    )
+
+    source_of_check: Optional[str] = Field(
+
+        sa_column=Column("source_of_check", String, nullable=True)
+
+    )
+
+    approval_flag: Optional[bool] = Field(
+
+        sa_column=Column("approval_flag", Boolean, nullable=True)
+
+    )
+
+    approval_date_time: Optional[datetime] = Field(
+
+        sa_column=Column("approval_date_time", TIMESTAMP, nullable=True)
+
+    )
+ 
+
+class AgentRiskDomainA(SQLModel, table=True):
+
+    __tablename__ = "domaina"
+
+    id: Optional[int] = Field(
+
+        default=None,
+
+        sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+
+    )
+
+    submission_id: Optional[str] = Field(
+
+        sa_column=Column("submission_id", String(50), nullable=True)
+
+    )
+
+    domain: Optional[str] = Field(
+
+        sa_column=Column("domain", String, nullable=True)
+
+    )
+
+    construction_class: Optional[int] = Field(
+
+        sa_column=Column("construction_class", Integer, nullable=True)
+
+    )
+
+    overall_building_age: Optional[int] = Field(
+
+        sa_column=Column("overall_building_age", Integer, nullable=True)
+
+    )
+
+    roof_flat_tpo_epdm: Optional[int] = Field(
+
+        sa_column=Column("roof_flat_tpo_epdm", Integer, nullable=True)
+
+    )
+
+    hvac_system: Optional[int] = Field(
+
+        sa_column=Column("hvac_system", Integer, nullable=True)
+
+    )
+
+    electrical_system: Optional[int] = Field(
+
+        sa_column=Column("electrical_system", Integer, nullable=True)
+
+    )
+
+    plumbing_system: Optional[int] = Field(
+
+        sa_column=Column("plumbing_system", Integer, nullable=True)
+
+    )
+
+    domain_sum: Optional[int] = Field(
+
+        sa_column=Column("domain_sum", Integer, nullable=True)
+
+    )
+
+    weighted_sum: Optional[int] = Field(
+
+        sa_column=Column("weighted_sum", Integer, nullable=True)
+
+    )
+ 
+
+class AgentRiskDomainB(SQLModel, table=True):
+
+    __tablename__ = "domainb"
+
+    id: Optional[int] = Field(
+
+        default=None,
+
+        sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+
+    )
+
+    submission_id: Optional[str] = Field(
+
+        sa_column=Column("submission_id", String(50), nullable=True)
+
+    )
+
+    domain: Optional[str] = Field(
+
+        sa_column=Column("domain", String, nullable=True)
+
+    )
+
+    occupancy_type: Optional[int] = Field(
+
+        sa_column=Column("occupancy_type", Integer, nullable=True)
+
+    )
+
+    vacancy_rate: Optional[int] = Field(
+
+        sa_column=Column("vacancy_rate", Integer, nullable=True)
+
+    )
+
+    domain_sum: Optional[int] = Field(
+
+        sa_column=Column("domain_sum", Integer, nullable=True)
+
+    )
+
+    weighted_sum: Optional[int] = Field(
+
+        sa_column=Column("weighted_sum", Integer, nullable=True)
+
+    )
+ 
+
+class AgentRiskDomainC(SQLModel, table=True):
+   __tablename__ = "domainc"
+   id: Optional[int] = Field(
+       default=None,
+       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+   )
+   submission_id: Optional[str] = Field(
+       sa_column=Column("submission_id", String(50), nullable=True)
+   )
+   domain: Optional[str] = Field(
+       sa_column=Column("domain", String, nullable=True)
+   )
+   fema_flood_zone: Optional[int] = Field(
+       sa_column=Column("fema_flood_zone", Integer, nullable=True)
+   )
+   wildfire_risk_score: Optional[int] = Field(
+       sa_column=Column("wildfire_risk_score", Integer, nullable=True)
+   )
+   wind_zone_hurricane: Optional[int] = Field(
+       sa_column=Column("wind_zone_hurricane", Integer, nullable=True)
+   )
+   earthquake_pml: Optional[int] = Field(
+       sa_column=Column("earthquake_pml", Integer, nullable=True)
+   )
+   hail_score: Optional[int] = Field(
+       sa_column=Column("hail_score", Integer, nullable=True)
+   )
+   domain_sum: Optional[int] = Field(
+       sa_column=Column("domain_sum", Integer, nullable=True)
+   )
+   weighted_sum: Optional[int] = Field(
+       sa_column=Column("weighted_sum", Integer, nullable=True)
+   )
 
 
-separate_summary.py
+class AgentRiskDomainD(SQLModel, table=True):
 
-import logging
-from dotenv import load_dotenv
-import os
-from typing import List, Dict, Any
-from openai import AzureOpenAI
-from common.phoenix_prompt import build_prompt
+    __tablename__ = "domaind"
+
+    id: Optional[int] = Field(
+
+        default=None,
+
+        sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+
+    )
+
+    submission_id: Optional[str] = Field(
+
+        sa_column=Column("submission_id", String(50), nullable=True)
+
+    )
+
+    domain: Optional[str] = Field(
+
+        sa_column=Column("domain", String, nullable=True)
+
+    )
+
+    prior_carrier_departure: Optional[int] = Field(
+
+        sa_column=Column("prior_carrier_departure", Integer, nullable=True)
+
+    )
+
+    bi_period_adequacy: Optional[int] = Field(
+
+        sa_column=Column("bi_period_adequacy", Integer, nullable=True)
+
+    )
+
+    years_in_business: Optional[int] = Field(
+
+        sa_column=Column("years_in_business", Integer, nullable=True)
+
+    )
+
+    domain_sum: Optional[int] = Field(
+
+        sa_column=Column("domain_sum", Integer, nullable=True)
+
+    )
+
+    weighted_sum: Optional[int] = Field(
+
+        sa_column=Column("weighted_sum", Integer, nullable=True)
+
+    )
+ 
+
+class AgentRiskDomainE(SQLModel, table=True):
+   __tablename__ = "domaine"
+   id: Optional[int] = Field(
+       default=None,
+       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+   )
+   submission_id: Optional[str] = Field(
+       sa_column=Column("submission_id", String(50), nullable=True)
+   )
+   domain: Optional[str] = Field(
+       sa_column=Column("domain", String, nullable=True)
+   )
+   sprinkler_system: Optional[int] = Field(
+       sa_column=Column("sprinkler_system", Integer, nullable=True)
+   )
+   fire_alarm: Optional[int] = Field(
+       sa_column=Column("fire_alarm", Integer, nullable=True)
+   )
+   security_system: Optional[int] = Field(
+       sa_column=Column("security_system", Integer, nullable=True)
+   )
+   last_fire_inspection: Optional[int] = Field(
+       sa_column=Column("last_fire_inspection", Integer, nullable=True)
+   )
+   backup_power: Optional[int] = Field(
+       sa_column=Column("backup_power", Integer, nullable=True)
+   )
+   domain_sum: Optional[int] = Field(
+       sa_column=Column("domain_sum", Integer, nullable=True)
+   )
+   weighted_sum: Optional[int] = Field(
+       sa_column=Column("weighted_sum", Integer, nullable=True)
+   )
 
 
-logger = logging.getLogger(__name__)
+class AgentRiskDomainF(SQLModel, table=True):
+   __tablename__ = "domainf"
+   id: Optional[int] = Field(
+       default=None,
+       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+   )
+   submission_id: Optional[str] = Field(
+       sa_column=Column("submission_id", String(50), nullable=True)
+   )
+   domain: Optional[str] = Field(
+       sa_column=Column("domain", String, nullable=True)
+   )
+   building_code_compliance: Optional[int] = Field(
+       sa_column=Column("building_code_compliance", Integer, nullable=True)
+   )
+   risk_management_program: Optional[int] = Field(
+       sa_column=Column("risk_management_program", Integer, nullable=True)
+   )
+   claims_litigation_disputes: Optional[int] = Field(
+       sa_column=Column("claims_litigation_disputes", Integer, nullable=True)
+   )
+   domain_sum: Optional[int] = Field(
+       sa_column=Column("domain_sum", Integer, nullable=True)
+   )
+   weighted_sum: Optional[int] = Field(
+       sa_column=Column("weighted_sum", Integer, nullable=True)
+   )
 
-load_dotenv()
 
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+class AgentSubmissionIntake(SQLModel, table=True):
+   __tablename__ = "agent_submission_intake"
+   id: Optional[int] = Field(
+       default=None,
+       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
+   )
+   reference_number: str = Field(
+       sa_column=Column("reference_number", String, nullable=False)
+   )
+   customer_name: Optional[str] = Field(
+       sa_column=Column("customer_name", Text, nullable=True)
+   )
+   broker_agent_name: Optional[str] = Field(
+       sa_column=Column("broker_agent_name", Text, nullable=True)
+   )
+   date_time_received: Optional[datetime] = Field(
+       sa_column=Column("date_time_received", TIMESTAMP, nullable=True)
+   )
+   email_subject: Optional[str] = Field(
+       sa_column=Column("email_subject", Text, nullable=True)
+   )
+   email_body: Optional[str] = Field(
+       sa_column=Column("email_body", Text, nullable=True)
+   )
+   sender_email_address: Optional[str] = Field(
+       sa_column=Column("sender_email_address", Text, nullable=True)
+   )
+   risk_details: Optional[str] = Field(
+       sa_column=Column("risk_details", Text, nullable=True)
+   )
+   has_attachments: Optional[bool] = Field(
+       sa_column=Column("has_attachments", Boolean, nullable=True)
+   )
+   attachment_count: Optional[int] = Field(
+       sa_column=Column("attachment_count", Integer, nullable=True)
+   )
+   attachments_info: Optional[List[Dict[str, Any]]] = Field(
+       sa_column=Column("attachments_info", JSONB, nullable=True)
+   )
+   submission_summary: Optional[str] = Field(
+       sa_column=Column("submission_summary", Text, nullable=True)
+   )
+   document_summary: Optional[str] = Field(
+       sa_column=Column("document_summary", Text, nullable=True)
+   )
+   processed: Optional[bool] = Field(
+       sa_column=Column("processed", Boolean, nullable=True)
+   )
+   processed_at: Optional[datetime] = Field(
+       sa_column=Column("processed_at", TIMESTAMP, nullable=True)
+   )
+   created_at: Optional[datetime] = Field(
+       sa_column=Column("created_at", TIMESTAMP, nullable=False)
+   )
 
-if not (
-    AZURE_OPENAI_ENDPOINT
-    and AZURE_OPENAI_API_VERSION
-    and AZURE_OPENAI_API_KEY
-    and AZURE_OPENAI_CHAT_DEPLOYMENT
-):
-    raise RuntimeError("Azure OpenAI env vars missing.")
+router.py
 
-client = AzureOpenAI(
-    api_key=AZURE_OPENAI_API_KEY,
-    api_version=AZURE_OPENAI_API_VERSION,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+
+from fastapi import APIRouter
+from handler import database_filler_start
+router = APIRouter()
+
+@router.post(
+   "/data_filler_mcp",
+   operation_id="data_filler_mcp"
 )
+async def data_filler_mcp(payload: dict):
+   try:
+       # PASS FULL PAYLOAD (IMPORTANT FIX)
+       response = await database_filler_start(payload)
+       return {
+           "jsonrpc":"2.0",
+           "id":payload.get("id"),
+           "result":response
+       }
+   except Exception as e:
+       return {
+           "jsonrpc":"2.0",
+           "id":payload.get("id"),
+           "error":str(e)
+       }
 
+service.py
 
-def _call_chat_llm(prompt: str, max_tokens: int = 700, temperature: float = 0.2):
-    logger.info("🤖 LLM call: _call_chat_llm | prompt_chars=%d | max_tokens=%d | model=%s",
-                len(prompt), max_tokens, AZURE_OPENAI_CHAT_DEPLOYMENT)
-    response = client.chat.completions.create(
-        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
-    result = response.choices[0].message.content.strip()
-    logger.info("✅ LLM response: _call_chat_llm | response_chars=%d", len(result))
-    return result
 
 
-def generate_professional_summary(text: str):
+from models import AgentEligibility
+from sqlmodel import Session
+from db import get_engine
+from mapper import TABLE_MODEL_MAP
+from datetime import datetime
 
-    text = text[:5000]
 
+async def database_filler(result:dict):
 
-    prompt = build_prompt(
+    def find_data_filler(obj):
 
-        "UHJvbXB0VmVyc2lvbjoxNw==",
+        # search in dictionary
+        if isinstance(obj, dict):
 
-        text= text,
+            if "Data_Filler" in obj:
+                return obj["Data_Filler"]
 
-    )
+            for value in obj.values():
 
-    return _call_chat_llm(prompt)
+                found = find_data_filler(value)
 
+                if found is not None:
+                    return found
 
-def individual_summary(attachments: List[Dict[str, Any]]):
+        # search in list
+        elif isinstance(obj, list):
 
-    for attachment in attachments:
+            for item in obj:
 
-        file_name = attachment.get("file_name","")
-        text = attachment.get("text","")
+                found = find_data_filler(item)
 
-        logger.info("Processing summary for %s", file_name)
+                if found is not None:
+                    return found
 
-        processed_summary = generate_professional_summary(text)
+        return None
 
-        attachment["processed_summary"] = processed_summary
 
-        logger.info("Processed Summary completed for %s", file_name)
+    data = find_data_filler(result)
 
-    return attachments
+    # FIX: must check None not empty
+    if data is None:
+        raise Exception("Data_Filler missing")
 
-summary_classifier.py
+    if not isinstance(data,list):
+        raise Exception("Data_Filler must be list")
 
-# classifier.py
-# INTEGRATED WITH CHINMAY'S CODE - Final
-import logging
-from dotenv import load_dotenv
-import os
-from openai import AzureOpenAI  # Correct import for Azure OpenAI
-from common.phoenix_prompt import build_prompt
 
+    processed=[]
 
-logger = logging.getLogger(__name__)
+    for index,item in enumerate(data):
 
-# Load environment variables
-load_dotenv()
+        if "Table_name" not in item:
+            raise Exception(f"Row {index} missing Table_name")
 
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT")
+        table=item["Table_name"]
 
-if not (
-    AZURE_OPENAI_ENDPOINT
-    and AZURE_OPENAI_API_VERSION
-    and AZURE_OPENAI_API_KEY
-    and AZURE_OPENAI_CHAT_DEPLOYMENT
-):
-    raise RuntimeError(
-        "Azure OpenAI env vars missing. Please set "
-        "AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, "
-        "AZURE_OPENAI_API_KEY and AZURE_OPENAI_CHAT_DEPLOYMENT"
-    )
+        row=item.copy()
 
-# Create Azure OpenAI client
-client = AzureOpenAI(
-    api_key=AZURE_OPENAI_API_KEY,
-    api_version=AZURE_OPENAI_API_VERSION,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-)
+        row.pop("Table_name")
 
+        processed.append({
 
-def summarize_first_page(document_content: dict, file_name: str | None = None) -> str:
-    """
-    Use Azure OpenAI to summarize the *first page* of the document.
+            "table":table,
 
-    document_content is expected to come from load_summary_document() and contain:
-      - "first_page_text": str  # we store full text there now
-    """
+            "data":row,
 
-    first_page_text = document_content.get("first_page_text")
-    if not first_page_text:
-        first_page_text = document_content.get("text", "")
+            "row_number":index
 
-    # Safety: limit size so we don't overload the prompt
-    first_page_text = first_page_text[:4000]
+        })
 
+    return processed
 
 
+def process_database(rows:list):
+   engine=get_engine()
+   inserted=0
+   errors=[]
+   with Session(engine) as session:
+       for row in rows:
+           try:
+               table=row["table"]
+               data=row["data"]
+               row_number=row["row_number"]
+               if table not in TABLE_MODEL_MAP:
+                   raise Exception(f"Table mapping missing for {table}")
+               model=TABLE_MODEL_MAP[table]
+               filtered_data={
+                   k:v for k,v in data.items()
+                   if k in model.model_fields
+               }
+               for field in [
+                   "approval_date_time",
+                   "eligibility_check_date_time"
+               ]:
+                   if field in filtered_data:
+                       if isinstance(filtered_data[field],str):
+                           filtered_data[field]=datetime.fromisoformat(
+                               filtered_data[field].replace(" ","T")
+                           )
+               db_row=model(**filtered_data)
+               session.add(db_row)
+               session.commit()   # ← commit per row
+               inserted+=1
+           except Exception as e:
+               session.rollback()   # only rollback failed row
+               errors.append({
+                   "row":row_number,
+                   "error":str(e)
+               })
+   return {
+       "status":True,
+       "rows_inserted":inserted,
+       "rows_failed":len(errors),
+       "errors":errors
+   }
 
-    prompt = build_prompt(
 
-        "UHJvbXB0VmVyc2lvbjoxOA==",
 
-        first_page_text = first_page_text,
-
-    )
-
-
-    logger.info("🤖 LLM call: summarize_first_page | file=%s | prompt_chars=%d | model=%s",
-                file_name, len(first_page_text), AZURE_OPENAI_CHAT_DEPLOYMENT)
-    response = client.chat.completions.create(
-        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=256,
-        temperature=0.2,
-    )
-
-    try:
-        result = response.choices[0].message.content.strip()
-    except Exception as e:
-        logger.warning("Could not access response content directly, using getattr fallback: %s", e)
-        result = getattr(response.choices[0].message, "content", "").strip()
-
-    logger.info("✅ LLM response: summarize_first_page | file=%s | response_chars=%d", file_name, len(result))
-    return result
-
-
-summary_handler.py
-
-import os
-import json
-import logging
-from typing import Dict, Any, List
-import pandas as pd
-
-
-from urllib.parse import urlparse
-import os
-
-logger = logging.getLogger(__name__)
-
-
-from .summary_service import summary_require_env
-# from summary_storage_utils import download_blob_to_input_folder
-from .summary_loader import load_summary_document
-from .summary_classifier import summarize_first_page
-from .Data_Filler import extract_filenames_and_summaries
-from .Data_Filler import connect_to_blob, beautify_extracted_data
-from .newsummary import summarize_attachments
-from .separate_summary import individual_summary
-from .Data_Filler import beautify_api_response
-from .summary_storage_utils import download_blob_to_input_folder_by_reference, read_text_file_from_container,extract_filename_referencenumber_container_name
-# from newsummary import extract_refs_from_attachments, load_raw_email_bodies_for_refs, summarize_attachments
-
-
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# INPUT_FOLDER = "input"
-# OUTPUT_FOLDER = "output"
-# EMAIL_BODY = "email_body"
-
-INPUT_FOLDER = os.path.join(BASE_DIR, "input")
-OUTPUT_FOLDER = os.path.join(BASE_DIR, "output")
-EMAIL_BODY = os.path.join(BASE_DIR, "email_body")
-
-def clean_result_for_api(result: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Build a compact, clean dictionary response from the full 'result' dict.
-
-    Output shape:
-    {
-      "combined_summary": "<string or None>",
-      "individualized_summary": [
-         { "file_name": ..., "summary": ..., "document_type": ..., "processed_summary": ... },
-         ...
-      ]
-    }
-
-    This removes raw 'text' and error details from the per-file items.
-    """
-    combined = result.get("combined_summary")
-
-    raw_individualized = result.get("individualized_summary", [])
-    cleaned_list: List[Dict[str, Any]] = []
-
-    if isinstance(raw_individualized, list):
-        for item in raw_individualized:
-            cleaned_item = {
-                "file_name": item.get("file_name"),
-                "summary": item.get("summary"),
-                "document_type": item.get("document_type"),
-                "processed_summary": item.get("processed_summary"),
-            }
-            cleaned_list.append(cleaned_item)
-
-    return {
-        "combined_summary": combined,
-        "individualized_summary": cleaned_list,
-    }
-
-
-async def summarize_blob_pdfs_layout(blob_urls: List[str]) -> Dict[str, Any]:
-    """
-    For each Blob URL:
-      - Download PDF into input/
-      - Use Form Recognizer to extract text (all pages)
-      - Use LLM to summarize the FIRST PAGE
-
-    Saves the full detailed JSON (including raw text) to ./output/layout_summaries_result.json
-    but RETURNS a cleaned dictionary suitable for API responses (no raw 'text').
-    """
-    try:
-        summary_require_env()
-    except Exception as e:
-        logger.error("❌ Environment misconfigured, aborting summarization: %s", e)
-        return {"combined_summary": None, "individualized_summary": []}
-
-    summaries: List[Dict[str, Any]] = []
-
-    for blob_url in blob_urls:
-        file_name = None
-
-        try:
-            container, filename, reference_number =  await extract_filename_referencenumber_container_name(blob_url)
-            file_name = filename
-
-
-            # parsed = urlparse(blob_url)
-            # file_name_with_ext = os.path.basename(parsed.path)
-            # file_name = os.path.splitext(file_name_with_ext)[0]
-            # reference_number = file_name.split("_")[0]
-            # container = parsed.path.split("/")[1]
-
-
-            # parsed = urlparse(blob_url)
-            # path_parts = parsed.path.lstrip("/").split("/")
-            # container = path_parts[0]
-            # file_name_with_ext = path_parts[-1]
-            # file_name = os.path.splitext(file_name_with_ext)[0]
-            # reference_number = file_name.split("_")[0]
-            # file_name = filename
-            
-            logger.info("📄 Parsed blob: container=%s reference_number=%s filename=%s",
-                        container, reference_number, filename)
-        except Exception as e:
-            logger.error("❌ Failed to parse blob URL %s: %s", blob_url, e)
-            summaries.append(
-                {
-                    "blob_url": blob_url,
-                    "file_name": file_name,
-                    "summary": None,
-                    "text": None,
-                    "error": f"Failed to read filename: {e}",
-                }
-            )
-            continue
-
-        # try:
-        #     text = await read_text_file_from_container(filename)
-        # except Exception as e:
-        #     summaries.append(
-        #         {
-        #             "blob_url": blob_url,
-        #             "file_name": file_name,
-        #             "summary": None,
-        #             "text": text,
-        #             "error": f"Failed to read filename: {e}",
-        #         }
-        #     )            
-        #     continue
-
-        try:
-            text = await read_text_file_from_container(filename,container)
-        except Exception as e:
-            logger.error("❌ Text file missing for %s (ref=%s): %s", filename, reference_number, e)
-            summaries.append(
-                {
-                    "blob_url": blob_url,
-                    "file_name": file_name,
-                    "reference_number": reference_number,
-                    "summary": None,
-                    "text": None,
-                    "error": f"TEXT_FILE_MISSING: {e}",
-                }
-            )
-            continue
-
-       try:
-            summary_text = summarize_first_page({"first_page_text":text}, file_name=file_name)
-        except Exception as e:
-            logger.error("❌ Summarization failed for %s: %s", file_name, e)
-            summaries.append(
-                {
-                    "blob_url": blob_url,
-                    "file_name": file_name,
-                    "summary": None,
-                    "text": text,
-                    "error": f"Summarization failed: {e}",
-                }
-            )
-            continue
-
-        # 4) Success case for this document — include raw text for audit on disk
-        summaries.append(
-            {
-                "blob_url": blob_url,
-                "file_name": file_name,
-                "reference_number":reference_number,
-                "summary": summary_text,
-                "text": text,
-                "error": None,
-            }
-        )
-
-    result: Dict[str, Any] = {"status": True, "summaries": summaries}
-
-    # 5) Save result to ./output (retain 'text' on disk for audit)
-    try:
-        os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-        out_path = os.path.join(OUTPUT_FOLDER, "layout_summaries_result.json")
-        with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        result["save_error"] = str(e)
-
-    # 6) Beautify and optionally write to Excel (unchanged; uses only file_name + summary)
-    beautify_data: List[Dict[str, Any]] = []
-    try:
-        extracted_data = extract_filenames_and_summaries(OUTPUT_FOLDER)
-        logger.info("✅ Extracted beautified data")
-        beautify_data = beautify_extracted_data(extracted_data)
-        logger.info("✅ Beautify complete: %s", beautify_data)
-
-    except Exception as e:
-        logger.exception("❌ Error in beautify / blob step")
-
-
-    try:
-        download_results = await download_blob_to_input_folder_by_reference(
-            beautify_data,
-            output_folder=EMAIL_BODY,
-            container_name="attachment-downloader",
-            blob_name_template="body_{ref}.txt",
-        )
-        logger.info("✅ Email body download results: %s", download_results)
-    except Exception as e:
-        logger.exception("❌ Failed to download email bodies by reference")
-
-#Working code friday night 7:20 pm
-    # 7) Combined submission summary (uses file_name + summary only)
-    combined_summary_text = None
-    filenamesummary_extracted_beautified: List[Dict[str, Any]] = []
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        # output_folder = "output"
-
-        json_path = os.path.join(OUTPUT_FOLDER, "layout_summaries_result.json")
-        with open(json_path, "r", encoding="utf-8") as f:
-            layout_json = json.load(f)
-
-        # filenamesummary_extracted_beautified = extract_filenames_and_summaries(output_folder)
-       
-        #Commented this 
-        # filenamesummary_extracted_beautified = summaries
-        #Added below two things after commenting
-        valid_documents = [
-            doc for doc in summaries
-            if doc.get("text") and not doc.get("error")
-            ]
-
-        filenamesummary_extracted_beautified = valid_documents
-
-        logger.info("📄 Per-document summaries: %d document(s)", len(filenamesummary_extracted_beautified))
-        
-        
-        #HERE WE CAN CALL THE EXTRACT REFS FROM ATTACHMENTS AND LOAD RAW EMAIL BODIES FOR REFS FUNCTIONS AND KEEP THE CALLING OF SUMMARIZE_ATTACHMENTS SAME AS BELOW 
-
-        # reference_number_extracted = extract_refs_from_attachments(beautify_data)
-
-        # load_raw_email_bodies_for_refs(reference_extracted,"email_body")
-
-        combined_summary_text = summarize_attachments(filenamesummary_extracted_beautified)
-        logger.info("✅ Combined submission summary generated")
-        result["combined_summary"] = combined_summary_text
-    except Exception as e:
-        logger.exception("❌ Error generating combined submission summary")
-        result["combined_summary_error"] = str(e)
-        combined_summary_text = None
-
-    # 8) Individual typed summaries (ACORD / Loss Run / SOV)
-    try:
-        individualized_summary = individual_summary(filenamesummary_extracted_beautified)
-        logger.info("✅ Individual summaries generated: %d document(s)", len(individualized_summary))
-        result["individualized_summary"] = individualized_summary
-    except Exception as e:
-        logger.exception("❌ Error generating individual summary")
-        result["individualized_summary_error"] = str(e)
-        result["individualized_summary"] = []
-
-
-    # 9) CLEAN the result for the API and return only the compact payload (no raw text)
-    cleaned_payload = clean_result_for_api(result)
-
-
-    
-    beautified: Dict[str, Any] = cleaned_payload
-    excel_update_status = "Not attempted"
-    try:
-        beautified = beautify_api_response(cleaned_payload)
-        logger.info("✅ API response beautified")
-
-        DATA_URL = os.getenv("Data_URL")
-        if DATA_URL:
-            try:
-                updated_data = connect_to_blob(DATA_URL, beautified)
-                if isinstance(updated_data, pd.DataFrame):
-                    logger.info("☁️ Blob data processed and Excel updated")
-                    excel_update_status = "Excel Opened"
-                else:
-                    error_msg = updated_data.get("error", "Excel update failed")
-                    logger.error("❌ Excel update failed: %s", error_msg)
-                    excel_update_status = error_msg
-            except Exception as e:
-                logger.exception("❌ Error processing blob data")
-                excel_update_status = str(e)
-        else:
-            logger.warning("⚠️ Data_URL environment variable is not set")
-            excel_update_status = "DATA_URL not configured"
-    except Exception as e:
-        logger.exception("❌ Error in beautify / blob step")
-
-
-    # return cleaned_payload
-    beautified["excel_update_status"] = excel_update_status
-    return beautified
-
-
-summary_loader.py
-
-import logging
-from dotenv import load_dotenv
-import os
-from azure.ai.formrecognizer import DocumentAnalysisClient
-from azure.core.credentials import AzureKeyCredential
-
-logger = logging.getLogger(__name__)
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Fetch variables
-endpoint = os.getenv("AZURE_FORMRECOG_ENDPOINT")
-key = os.getenv("AZURE_FORMRECOG_KEY")
-
-# Fail fast if missing
-if not endpoint:
-    raise ValueError("AZURE_FORMRECOG_ENDPOINT is not set. Check your .env file.")
-if not key:
-    raise ValueError("AZURE_FORMRECOG_KEY is not set. Check your .env file.")
-
-# Create the client using the key and endpoint
-client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
-
-
-def load_summary_document(file_path: str) -> dict:
-    """
-    Extract ALL PAGES using Form Recognizer's prebuilt-read model.
-
-    Even though the return key is 'first_page_text',
-    we now return the FULL DOCUMENT TEXT (all pages) concatenated.
-    """
-    with open(file_path, "rb") as f:
-        poller = client.begin_analyze_document(
-            "prebuilt-read",
-            document=f
-        )
-        result = poller.result()
-
-    if not result.pages:
-        return {"first_page_text": ""}
-
-    all_pages_text_list = []
-    # Collect text for ALL pages
-    for page in result.pages:
-        page_lines = [line.content for line in page.lines]
-        page_text = "\n".join(page_lines)
-        all_pages_text_list.append(page_text)
-
-    # Combine everything into ONE string
-    all_pages_text = "\n\n".join(all_pages_text_list)
-
-    # Optional debug
-    logger.debug("ALL pages text (truncated to 500 chars): %s", all_pages_text[:500])
-    logger.debug("---- END OF PREVIEW ----")
-
-    return {
-        "first_page_text": all_pages_text   # full text stored under this key
-    }
-
-
-
-
-summary_service.py
-
-import os
-from urllib.parse import urlparse, unquote
-from dotenv import load_dotenv
-
-load_dotenv()
-
-AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
-
-
-def summary_require_env() -> None:
-    """Ensure required environment variables exist."""
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("Missing AZURE_STORAGE_CONNECTION_STRING in environment/.env")
-
-
-def new_parse_blob_url(url: str) -> tuple[str, str]:
-    """
-    Parse an Azure Blob URL and return (container_name, blob_path).
-    Example URL:
-      https://account.blob.core.windows.net/output-results/folder/name.pdf
-    Returns:
-      ("output-results", "folder/name.pdf")
-    """
-    parsed = urlparse(url)
-    if not parsed.scheme.startswith("http"):
-        raise ValueError("url must be a valid http(s) Azure Blob URL.")
-
-    path = parsed.path.lstrip("/")
-    if "/" not in path:
-        raise ValueError("url must include both container and blob path.")
-    parts = path.split("/", 1)
-    container = parts[0]
-    blob_path = parts[1]
-    return unquote(container), unquote(blob_path)
-
-
-def _parse_blob_url(url: str) -> tuple[str, str, str]:
-    """
-    Parse an Azure Blob URL and return (container_name, filename_without_ext, reference_number).
-    Example URL:
-      https://account.blob.core.windows.net/output-results/folder/name.pdf
-    Returns:
-      ("output-results", "name", "name_reference_part") 
-    
-    For your example URL: 
-      "https://agenticai1.blob.core.windows.net/attachment-downloader/19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document.pdf"
-    Returns:
-      ("attachment-downloader", "19CDC8AB7BCC5E85_attachment_SunflowerHotels_Submission_Document", "19CDC8AB7BCC5E85")
-    """
-    parsed = urlparse(url)
-    if not parsed.scheme.startswith("http"):
-        raise ValueError("url must be a valid http(s) Azure Blob URL.")
-
-    path = parsed.path.lstrip("/")
-    if "/" not in path:
-        raise ValueError("url must include both container and blob path.")
-    
-    container, blob_path = path.split("/", 1)
-    container = unquote(container)
-    blob_path = unquote(blob_path)
-
-    # Extract filename and remove extension
-    filename_with_ext = os.path.basename(blob_path)
-    filename, _ = os.path.splitext(filename_with_ext)
-
-    # Extract reference number (assumed to be the part before first underscore)
-    if "_" not in filename:
-        raise ValueError("filename does not contain an underscore to extract reference number")
-    reference_number = filename.split("_", 1)[0]
-
-    return container, filename, reference_number
-
-
-storage_utils.py
-
-
-
-import logging
-import os
-import aiofiles
-from azure.storage.blob.aio import BlobServiceClient
-from azure.core.exceptions import AzureError, ResourceNotFoundError
-
-from .summary_service import AZURE_STORAGE_CONNECTION_STRING, _parse_blob_url
-
-logger = logging.getLogger(__name__)
-
-Data_Raw_Text_Container_Name = "layout-detection-text-of-document"
-
-# #I commented this
-# async def download_blob_to_input_folder(blob_url: str, input_folder: str = "input") -> str:
-#     """
-#     Downloads the blob at blob_url into input_folder (root-level) preserving filename.
-#     Returns the local path to the downloaded file.
-#     """
-#     if not AZURE_STORAGE_CONNECTION_STRING:
-#         raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
-    
-#     container, blob_path = _parse_blob_url(blob_url)
-#     filename = os.path.basename(blob_path)
-#     os.makedirs(input_folder, exist_ok=True)
-#     local_path = os.path.join(input_folder, filename)
-
-#     async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as service:
-#         container_client = service.get_container_client(container)
-#         blob_client = container_client.get_blob_client(blob_path)
-#         try:
-#             await blob_client.get_blob_properties()
-#         except ResourceNotFoundError:
-#             raise FileNotFoundError(f"Blob not found: container={container} blob={blob_path}")
-#         stream = await blob_client.download_blob()
-#         data = await stream.readall()
-
-#     # write file async
-#     async with aiofiles.open(local_path, "wb") as f:
-#         await f.write(data)
-
-#     return local_path
-
-
-
-
-
-async def extract_filename_referencenumber_container_name(blob_url: str) -> str:
-    """
-    Downloads the blob at blob_url into input_folder (root-level) preserving filename.
-    Returns the local path to the downloaded file.
-    """
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
-    
-    container, filename, reference_number = _parse_blob_url(blob_url)
-
-    return container, filename, reference_number
-
-# Data_Raw_Text_Container_Name = "layout-detection-text-of-document"
-
-
-async def read_text_file_from_container(filename: str, container: str) -> str:
-    """
-    Reads the contents of a .txt file from the Azure Blob container Data_Raw_Text_Container_Name
-    corresponding to the provided filename (without extension).
-    Returns the text content of the file.
-    """
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
-
-    # filename_without_ext = os.path.splitext(filename)[0]
-    # blob_name = filename + ".txt"
-
-    # filename_without_ext = os.path.splitext(filename)[0]
-    # blob_name = filename_without_ext + ".txt"
-
-    if filename.endswith(".txt"):
-        blob_name = filename
-    else:
-        blob_name = filename + ".txt"
-
-    # blob_name = filename
-
-    async with BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING) as service:
-        container_client = service.get_container_client(container)
-        blob_client = container_client.get_blob_client(blob_name)
-        try:
-            await blob_client.get_blob_properties()
-        except ResourceNotFoundError:
-            raise FileNotFoundError(f"Blob not found in container '{Data_Raw_Text_Container_Name}': {blob_name}")
-
-        downloader = await blob_client.download_blob()
-        data = await downloader.readall()
-        return data.decode("utf-8")
-
-
-
-
-
-async def download_blob_to_input_folder_by_reference(
-    beautified_data: list,
-    output_folder: str = "email_body",
-    container_name: str = "attachment-downloader",
-    blob_name_template: str = "body_{ref}.txt",
-) -> dict:
-    """
-    Download blobs whose names are derived from reference numbers found in beautified_data.
-
-    Args:
-      beautified_data: list of dicts each containing "reference_number" (as produced by beautify_extracted_data)
-      output_folder: local folder to save downloaded email bodies
-      container_name: blob container name (default 'attachment-downloader')
-      blob_name_template: template for filename in blob storage, {ref} will be replaced by the reference number
-
-    Returns:
-      dict mapping reference_number -> {"status":"ok","path":local_path} or {"status":"error","error":msg}
-    """
-    results = {}
-
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not set")
-
-    # collect unique references
-    refs = set()
-    for item in beautified_data or []:
-        ref = item.get("reference_number") or item.get("reference") or None
-        if ref:
-            refs.add(str(ref))
-
-    if not refs:
-        return {"status": "no_refs", "message": "No reference numbers found in beautified_data", "details": {}}
-
-    # os.makedirs(output_folder, exist_ok=True)
-
-    svc = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-
-    async with svc:
-        container_client = svc.get_container_client(container_name)
-        for ref in refs:
-            blob_name = blob_name_template.format(ref=ref)
-            # local_path = os.path.join(output_folder, blob_name)
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            output_folder = os.path.join(BASE_DIR, output_folder)
-            os.makedirs(output_folder, exist_ok=True)
-            local_path = os.path.join(output_folder, blob_name)
-            # base = os.path.dirname(os.path.abspath(__file__))
-            # output_folder = os.path.join(base, output_folder)
-            # os.makedirs(output_folder, exist_ok=True)
-            # local_path = os.path.join(output_folder, blob_name)
-
-
-            try:
-                blob_client = container_client.get_blob_client(blob_name)
-
-                # check existence
-                try:
-                    await blob_client.get_blob_properties()
-                except ResourceNotFoundError:
-                    results[ref] = {"status": "error", "error": f"Blob not found: container={container_name} blob={blob_name}"}
-                    continue
-
-                stream = await blob_client.download_blob()
-                data = await stream.readall()
-
-                # write file async
-                async with aiofiles.open(local_path, "wb") as f:
-                    await f.write(data)
-
-                results[ref] = {"status": "ok", "path": local_path}
-            except AzureError as ae:
-                logger.error("AzureError downloading blob for ref '%s': %s", ref, ae)
-                results[ref] = {"status": "error", "error": f"AzureError: {ae}"}
-            except Exception as e:
-                logger.error("Unexpected error downloading blob for ref '%s': %s", ref, e)
-                results[ref] = {"status": "error", "error": str(e)}
-
-    return {"status": "done", "details": results}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-newsummary.py

@@ -1,56 +1,24 @@
-body 
-{
-  "data": {
-    "attributes": {
-      "policyNumber": "8563228903"
-    }
-  }
-}
-post request 
+| `get_claim_by_id` | `GET /api/claims/:id` | ✅ Ready |
+| `get_claim_by_number` | `GET /api/claims/by-number/:claimNumber` | ✅ Ready |
+ 
+| `create_claim` | `POST /api/claims` | ✅ Ready |
+| `update_claim_status` | `PATCH /api/claims/:id` | ✅ Ready |
+| `get_claim_journey` | `GET /api/claim-journey/:claimId` | ✅ Ready |
+| `get_interaction_timeline` | `GET /api/interactions/:claimId` | ✅ Ready |
+| `get_policy_details` | `GET /api/policy-details/:policyId` | ✅ Ready |
+ 
+| `run_intake_validation` | `POST /api/intake-validation/:claimId` | ✅ Ready |
+| `get_intake_validation_result` | `GET /api/intake-validation-results/:claimId` | ✅ Ready |
+| `get_segmentation_result` | `GET /api/segmentation-results/:claimId` | ✅ Ready |
+| `get_risk_evaluation_snapshot` | `GET /api/risk-evaluation-snapshots/:claimId` | ✅ Ready |
+| `add_interaction` | `POST /api/interactions` | ✅ Ready |
+| `get_adjuster_findings` | `GET /api/adjuster-findings/claim/:claimId` | ✅ Ready |
+| `write_adjuster_findings` | `POST /api/adjuster-findings` | ✅ Ready |
+| `get_evidence_items` | `GET /api/evidence-items/claim/:claimId` | ✅ Ready |
+| `add_evidence_item` | `POST /api/evidence-items` | ✅ Ready |
 
 
-{
-    "count": 1,
-    "data": [
-        {
-            "attributes": {
-                "accountNumber": "5487859193",
-                "effectiveDate": "2026-05-08T04:01:00.000Z",
-                "expirationDate": "2027-05-08T04:01:00.000Z",
-                "insuredName": "FNTest_132 LNTest_132",
-                "policyAddress": "116 May St\nAltamont, UT 84001",
-                "policyId": "pc:S0Sq4GQmLWYAKv5Uhm5aJ",
-                "policyNumber": "8563228903",
-                "producerOfRecordName": "Armstrong and Company",
-                "producerOfServiceName": "Armstrong and Company",
-                "product": {
-                    "displayName": "Homeowners",
-                    "id": "HOPHomeowners"
-                }
-            },
-            "links": {
-                "self": {
-                    "href": "/policy/v1/policies/pc:S0Sq4GQmLWYAKv5Uhm5aJ",
-                    "methods": [
-                        "get"
-                    ]
-                }
-            }
-        }
-    ],
-    "links": {
-        "first": {
-            "href": "/policy/v1/search/policies",
-            "methods": [
-                "post"
-            ]
-        },
-        "self": {
-            "href": "/policy/v1/search/policies",
-            "methods": [
-                "post"
-            ]
-        }
-    }
-}
-
+I want to to understand these APIs, api payloads
+ 
+# Example call
+curl http://localhost:5000/api/claims/190

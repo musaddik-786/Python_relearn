@@ -1,21 +1,4 @@
-{
-    "status": 405,
-    "errorCode": "gw.api.rest.exceptions.OperationNotSupportedException",
-    "userMessage": "The GET method is not allowed for this resource",
-    "properties": {
-        "method": "GET",
-        "Allow": "OPTIONS, POST"
-    },
-    "details": [
-        {
-            "message": "The following methods are supported: OPTIONS, POST",
-            "properties": {
-                "Allow": "OPTIONS, POST"
-            }
-        }
-    ]
-}
-
+body 
 {
   "data": {
     "attributes": {
@@ -23,3 +6,51 @@
     }
   }
 }
+post request 
+
+
+{
+    "count": 1,
+    "data": [
+        {
+            "attributes": {
+                "accountNumber": "5487859193",
+                "effectiveDate": "2026-05-08T04:01:00.000Z",
+                "expirationDate": "2027-05-08T04:01:00.000Z",
+                "insuredName": "FNTest_132 LNTest_132",
+                "policyAddress": "116 May St\nAltamont, UT 84001",
+                "policyId": "pc:S0Sq4GQmLWYAKv5Uhm5aJ",
+                "policyNumber": "8563228903",
+                "producerOfRecordName": "Armstrong and Company",
+                "producerOfServiceName": "Armstrong and Company",
+                "product": {
+                    "displayName": "Homeowners",
+                    "id": "HOPHomeowners"
+                }
+            },
+            "links": {
+                "self": {
+                    "href": "/policy/v1/policies/pc:S0Sq4GQmLWYAKv5Uhm5aJ",
+                    "methods": [
+                        "get"
+                    ]
+                }
+            }
+        }
+    ],
+    "links": {
+        "first": {
+            "href": "/policy/v1/search/policies",
+            "methods": [
+                "post"
+            ]
+        },
+        "self": {
+            "href": "/policy/v1/search/policies",
+            "methods": [
+                "post"
+            ]
+        }
+    }
+}
+

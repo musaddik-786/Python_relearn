@@ -1,674 +1,133 @@
-db.py
-import os
-from sqlmodel import create_engine
-from sqlalchemy.pool import NullPool
-from dotenv import load_dotenv
-
-load_dotenv()
-
-
-def get_engine():
-    return create_engine(
-        f"postgresql+psycopg://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}"
-        f"@{os.getenv('PGHOST')}:{os.getenv('PGPORT', '5432')}/{os.getenv('PGDATABASE')}",
-        poolclass=NullPool,
-        # pool_pre_ping= True,
-        echo=False
-    )
-
-
-
-
-
-handler.py
-
-from service import database_filler
-from service import process_database
-async def database_filler_start(result:dict):
-   try:
-       rows = await database_filler(result)
-   except Exception as e:
-       return {
-           "status":False,
-           "error":str(e)
-       }
-   try:
-       db_result = process_database(rows)
-   except Exception as e:
-       return {
-           "status":False,
-           "error":str(e)
-       }
-   return {
-       "status":True,
-       "result":db_result
-   }
-
-main.py
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi_mcp import FastApiMCP
-import uvicorn
-import models
-from router import router as file_router
-
-def apply_cors(app: FastAPI):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-
-def create_sub_app(title: str, description: str, version: str = "0.1.0") -> FastAPI:
-    sub = FastAPI(title=title, description=description, version=version)
-    apply_cors(sub)
-    return sub
-
-
-app = FastAPI()
-apply_cors(app)
-
-file_app = create_sub_app(
-    title="Licensing_and_Sanction_Checker_MCP",
-    description="Receives JSON blob URL from Data Extraction Agent and compares extracted name with local sanctions CSV."
-)
-file_app.include_router(file_router)
-
-# Expose ONLY this operation id via MCP HTTP (client will use transport='http')
-FastApiMCP(file_app, include_operations=["Licensing_&_Sanction_Checker_MCP"]).mount_http()
-
-# Mount the sub-app under this prefix (keep as-is per your request)
-app.mount("/api/v1/eligibility_agent", file_app)
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=4751)
-
-
-mapper.py
-from models import AgentEligibility, AgentRiskDomainA, AgentRiskDomainB, AgentRiskDomainC, AgentRiskDomainD, AgentRiskDomainE, AgentRiskDomainF, AgentSubmissionIntake
-
-TABLE_MODEL_MAP = {
-    "agent_eligibility" : AgentEligibility,
-    "DomainA" : AgentRiskDomainA,
-    "DomainB" : AgentRiskDomainB,
-    "DomainC" : AgentRiskDomainC,
-    "DomainD" : AgentRiskDomainD,
-    "DomainE" : AgentRiskDomainE,
-    "DomainF" : AgentRiskDomainF,
-    "agent_submission_intake": AgentSubmissionIntake,
-
-}
-
-
-models.py
-
-
-from sqlmodel import SQLModel, Field, Column
-
-from sqlalchemy import String, Boolean, TIMESTAMP, Integer
-
-from typing import Optional
-
-from datetime import datetime
-
-
-class AgentEligibility(SQLModel, table=True):
-
-    __tablename__ = "agent_eligibility"
-
-    # id: Optional[int] = Field(default=None, primary_key=True)
-    id: Optional[int] = Field(
-    default=None,
-    sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-    )
-
-    reference_number: Optional[str] = Field(
-
-        sa_column=Column("reference_number", String, nullable=True)
-
-    )
-
-    eligibility_status: Optional[str] = Field(
-
-        sa_column=Column("eligibility_status", String, nullable=True)
-
-    )
-
-    eligibility_check_date_time: Optional[datetime] = Field(
-
-        sa_column=Column("eligibility_check_date_time", TIMESTAMP, nullable=True)
-
-    )
-
-    reason_summary: Optional[str] = Field(
-
-        sa_column=Column("reason_summary", String, nullable=True)
-
-    )
-
-    line_of_business: Optional[str] = Field(
-
-        sa_column=Column("line_of_business", String, nullable=True)
-
-    )
-
-    location_risk_zone: Optional[str] = Field(
-
-        sa_column=Column("location_risk_zone", String, nullable=True)
-
-    )
-
-    business_type: Optional[str] = Field(
-
-        sa_column=Column("business_type", String, nullable=True)
-
-    )
-
-    licensing_sanction_check: Optional[str] = Field(
-
-        sa_column=Column("licensing_sanction_check", String, nullable=True)
-
-    )
-
-    source_of_check: Optional[str] = Field(
-
-        sa_column=Column("source_of_check", String, nullable=True)
-
-    )
-
-    approval_flag: Optional[bool] = Field(
-
-        sa_column=Column("approval_flag", Boolean, nullable=True)
-
-    )
-
-    approval_date_time: Optional[datetime] = Field(
-
-        sa_column=Column("approval_date_time", TIMESTAMP, nullable=True)
-
-    )
- 
-
-class AgentRiskDomainA(SQLModel, table=True):
-
-    __tablename__ = "domaina"
-
-    id: Optional[int] = Field(
-
-        default=None,
-
-        sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-
-    )
-
-    submission_id: Optional[str] = Field(
-
-        sa_column=Column("submission_id", String(50), nullable=True)
-
-    )
-
-    domain: Optional[str] = Field(
-
-        sa_column=Column("domain", String, nullable=True)
-
-    )
-
-    construction_class: Optional[int] = Field(
-
-        sa_column=Column("construction_class", Integer, nullable=True)
-
-    )
-
-    overall_building_age: Optional[int] = Field(
-
-        sa_column=Column("overall_building_age", Integer, nullable=True)
-
-    )
-
-    roof_flat_tpo_epdm: Optional[int] = Field(
-
-        sa_column=Column("roof_flat_tpo_epdm", Integer, nullable=True)
-
-    )
-
-    hvac_system: Optional[int] = Field(
-
-        sa_column=Column("hvac_system", Integer, nullable=True)
-
-    )
-
-    electrical_system: Optional[int] = Field(
-
-        sa_column=Column("electrical_system", Integer, nullable=True)
-
-    )
-
-    plumbing_system: Optional[int] = Field(
-
-        sa_column=Column("plumbing_system", Integer, nullable=True)
-
-    )
-
-    domain_sum: Optional[int] = Field(
-
-        sa_column=Column("domain_sum", Integer, nullable=True)
-
-    )
-
-    weighted_sum: Optional[int] = Field(
-
-        sa_column=Column("weighted_sum", Integer, nullable=True)
-
-    )
- 
-
-class AgentRiskDomainB(SQLModel, table=True):
-
-    __tablename__ = "domainb"
-
-    id: Optional[int] = Field(
-
-        default=None,
-
-        sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-
-    )
-
-    submission_id: Optional[str] = Field(
-
-        sa_column=Column("submission_id", String(50), nullable=True)
-
-    )
-
-    domain: Optional[str] = Field(
-
-        sa_column=Column("domain", String, nullable=True)
-
-    )
-
-    occupancy_type: Optional[int] = Field(
-
-        sa_column=Column("occupancy_type", Integer, nullable=True)
-
-    )
-
-    vacancy_rate: Optional[int] = Field(
-
-        sa_column=Column("vacancy_rate", Integer, nullable=True)
-
-    )
-
-    domain_sum: Optional[int] = Field(
-
-        sa_column=Column("domain_sum", Integer, nullable=True)
-
-    )
-
-    weighted_sum: Optional[int] = Field(
-
-        sa_column=Column("weighted_sum", Integer, nullable=True)
-
-    )
- 
-
-class AgentRiskDomainC(SQLModel, table=True):
-   __tablename__ = "domainc"
-   id: Optional[int] = Field(
-       default=None,
-       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-   )
-   submission_id: Optional[str] = Field(
-       sa_column=Column("submission_id", String(50), nullable=True)
-   )
-   domain: Optional[str] = Field(
-       sa_column=Column("domain", String, nullable=True)
-   )
-   fema_flood_zone: Optional[int] = Field(
-       sa_column=Column("fema_flood_zone", Integer, nullable=True)
-   )
-   wildfire_risk_score: Optional[int] = Field(
-       sa_column=Column("wildfire_risk_score", Integer, nullable=True)
-   )
-   wind_zone_hurricane: Optional[int] = Field(
-       sa_column=Column("wind_zone_hurricane", Integer, nullable=True)
-   )
-   earthquake_pml: Optional[int] = Field(
-       sa_column=Column("earthquake_pml", Integer, nullable=True)
-   )
-   hail_score: Optional[int] = Field(
-       sa_column=Column("hail_score", Integer, nullable=True)
-   )
-   domain_sum: Optional[int] = Field(
-       sa_column=Column("domain_sum", Integer, nullable=True)
-   )
-   weighted_sum: Optional[int] = Field(
-       sa_column=Column("weighted_sum", Integer, nullable=True)
-   )
-
-
-class AgentRiskDomainD(SQLModel, table=True):
-
-    __tablename__ = "domaind"
-
-    id: Optional[int] = Field(
-
-        default=None,
-
-        sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-
-    )
-
-    submission_id: Optional[str] = Field(
-
-        sa_column=Column("submission_id", String(50), nullable=True)
-
-    )
-
-    domain: Optional[str] = Field(
-
-        sa_column=Column("domain", String, nullable=True)
-
-    )
-
-    prior_carrier_departure: Optional[int] = Field(
-
-        sa_column=Column("prior_carrier_departure", Integer, nullable=True)
-
-    )
-
-    bi_period_adequacy: Optional[int] = Field(
-
-        sa_column=Column("bi_period_adequacy", Integer, nullable=True)
-
-    )
-
-    years_in_business: Optional[int] = Field(
-
-        sa_column=Column("years_in_business", Integer, nullable=True)
-
-    )
-
-    domain_sum: Optional[int] = Field(
-
-        sa_column=Column("domain_sum", Integer, nullable=True)
-
-    )
-
-    weighted_sum: Optional[int] = Field(
-
-        sa_column=Column("weighted_sum", Integer, nullable=True)
-
-    )
- 
-
-class AgentRiskDomainE(SQLModel, table=True):
-   __tablename__ = "domaine"
-   id: Optional[int] = Field(
-       default=None,
-       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-   )
-   submission_id: Optional[str] = Field(
-       sa_column=Column("submission_id", String(50), nullable=True)
-   )
-   domain: Optional[str] = Field(
-       sa_column=Column("domain", String, nullable=True)
-   )
-   sprinkler_system: Optional[int] = Field(
-       sa_column=Column("sprinkler_system", Integer, nullable=True)
-   )
-   fire_alarm: Optional[int] = Field(
-       sa_column=Column("fire_alarm", Integer, nullable=True)
-   )
-   security_system: Optional[int] = Field(
-       sa_column=Column("security_system", Integer, nullable=True)
-   )
-   last_fire_inspection: Optional[int] = Field(
-       sa_column=Column("last_fire_inspection", Integer, nullable=True)
-   )
-   backup_power: Optional[int] = Field(
-       sa_column=Column("backup_power", Integer, nullable=True)
-   )
-   domain_sum: Optional[int] = Field(
-       sa_column=Column("domain_sum", Integer, nullable=True)
-   )
-   weighted_sum: Optional[int] = Field(
-       sa_column=Column("weighted_sum", Integer, nullable=True)
-   )
-
-
-class AgentRiskDomainF(SQLModel, table=True):
-   __tablename__ = "domainf"
-   id: Optional[int] = Field(
-       default=None,
-       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-   )
-   submission_id: Optional[str] = Field(
-       sa_column=Column("submission_id", String(50), nullable=True)
-   )
-   domain: Optional[str] = Field(
-       sa_column=Column("domain", String, nullable=True)
-   )
-   building_code_compliance: Optional[int] = Field(
-       sa_column=Column("building_code_compliance", Integer, nullable=True)
-   )
-   risk_management_program: Optional[int] = Field(
-       sa_column=Column("risk_management_program", Integer, nullable=True)
-   )
-   claims_litigation_disputes: Optional[int] = Field(
-       sa_column=Column("claims_litigation_disputes", Integer, nullable=True)
-   )
-   domain_sum: Optional[int] = Field(
-       sa_column=Column("domain_sum", Integer, nullable=True)
-   )
-   weighted_sum: Optional[int] = Field(
-       sa_column=Column("weighted_sum", Integer, nullable=True)
-   )
-
-
-class AgentSubmissionIntake(SQLModel, table=True):
-   __tablename__ = "agent_submission_intake"
-   id: Optional[int] = Field(
-       default=None,
-       sa_column=Column("id", Integer, primary_key=True, autoincrement=True)
-   )
-   reference_number: str = Field(
-       sa_column=Column("reference_number", String, nullable=False)
-   )
-   customer_name: Optional[str] = Field(
-       sa_column=Column("customer_name", Text, nullable=True)
-   )
-   broker_agent_name: Optional[str] = Field(
-       sa_column=Column("broker_agent_name", Text, nullable=True)
-   )
-   date_time_received: Optional[datetime] = Field(
-       sa_column=Column("date_time_received", TIMESTAMP, nullable=True)
-   )
-   email_subject: Optional[str] = Field(
-       sa_column=Column("email_subject", Text, nullable=True)
-   )
-   email_body: Optional[str] = Field(
-       sa_column=Column("email_body", Text, nullable=True)
-   )
-   sender_email_address: Optional[str] = Field(
-       sa_column=Column("sender_email_address", Text, nullable=True)
-   )
-   risk_details: Optional[str] = Field(
-       sa_column=Column("risk_details", Text, nullable=True)
-   )
-   has_attachments: Optional[bool] = Field(
-       sa_column=Column("has_attachments", Boolean, nullable=True)
-   )
-   attachment_count: Optional[int] = Field(
-       sa_column=Column("attachment_count", Integer, nullable=True)
-   )
-   attachments_info: Optional[List[Dict[str, Any]]] = Field(
-       sa_column=Column("attachments_info", JSONB, nullable=True)
-   )
-   submission_summary: Optional[str] = Field(
-       sa_column=Column("submission_summary", Text, nullable=True)
-   )
-   document_summary: Optional[str] = Field(
-       sa_column=Column("document_summary", Text, nullable=True)
-   )
-   processed: Optional[bool] = Field(
-       sa_column=Column("processed", Boolean, nullable=True)
-   )
-   processed_at: Optional[datetime] = Field(
-       sa_column=Column("processed_at", TIMESTAMP, nullable=True)
-   )
-   created_at: Optional[datetime] = Field(
-       sa_column=Column("created_at", TIMESTAMP, nullable=False)
-   )
-
-router.py
-
-
-from fastapi import APIRouter
-from handler import database_filler_start
-router = APIRouter()
-
-@router.post(
-   "/data_filler_mcp",
-   operation_id="data_filler_mcp"
-)
-async def data_filler_mcp(payload: dict):
-   try:
-       # PASS FULL PAYLOAD (IMPORTANT FIX)
-       response = await database_filler_start(payload)
-       return {
-           "jsonrpc":"2.0",
-           "id":payload.get("id"),
-           "result":response
-       }
-   except Exception as e:
-       return {
-           "jsonrpc":"2.0",
-           "id":payload.get("id"),
-           "error":str(e)
-       }
-
-service.py
-
-
-
-from models import AgentEligibility
-from sqlmodel import Session
-from db import get_engine
-from mapper import TABLE_MODEL_MAP
-from datetime import datetime
-
-
-async def database_filler(result:dict):
-
-    def find_data_filler(obj):
-
-        # search in dictionary
-        if isinstance(obj, dict):
-
-            if "Data_Filler" in obj:
-                return obj["Data_Filler"]
-
-            for value in obj.values():
-
-                found = find_data_filler(value)
-
-                if found is not None:
-                    return found
-
-        # search in list
-        elif isinstance(obj, list):
-
-            for item in obj:
-
-                found = find_data_filler(item)
-
-                if found is not None:
-                    return found
-
-        return None
-
-
-    data = find_data_filler(result)
-
-    # FIX: must check None not empty
-    if data is None:
-        raise Exception("Data_Filler missing")
-
-    if not isinstance(data,list):
-        raise Exception("Data_Filler must be list")
-
-
-    processed=[]
-
-    for index,item in enumerate(data):
-
-        if "Table_name" not in item:
-            raise Exception(f"Row {index} missing Table_name")
-
-        table=item["Table_name"]
-
-        row=item.copy()
-
-        row.pop("Table_name")
-
-        processed.append({
-
-            "table":table,
-
-            "data":row,
-
-            "row_number":index
-
-        })
-
-    return processed
-
-
-def process_database(rows:list):
-   engine=get_engine()
-   inserted=0
-   errors=[]
-   with Session(engine) as session:
-       for row in rows:
-           try:
-               table=row["table"]
-               data=row["data"]
-               row_number=row["row_number"]
-               if table not in TABLE_MODEL_MAP:
-                   raise Exception(f"Table mapping missing for {table}")
-               model=TABLE_MODEL_MAP[table]
-               filtered_data={
-                   k:v for k,v in data.items()
-                   if k in model.model_fields
-               }
-               for field in [
-                   "approval_date_time",
-                   "eligibility_check_date_time"
-               ]:
-                   if field in filtered_data:
-                       if isinstance(filtered_data[field],str):
-                           filtered_data[field]=datetime.fromisoformat(
-                               filtered_data[field].replace(" ","T")
-                           )
-               db_row=model(**filtered_data)
-               session.add(db_row)
-               session.commit()   # ← commit per row
-               inserted+=1
-           except Exception as e:
-               session.rollback()   # only rollback failed row
-               errors.append({
-                   "row":row_number,
-                   "error":str(e)
-               })
-   return {
-       "status":True,
-       "rows_inserted":inserted,
-       "rows_failed":len(errors),
-       "errors":errors
-   }
-
-
-
+So this intelligent ethanol, the overall agentic claim solution is an AI orchestrated claim solution designed for personal lines, PNC, Insurance. The objective of the solution is to transform the property claims and also motor claims to
+Partha Sen 0 minutes 35 seconds
+from a fragmented reactive process into an intelligent, customer-centric experience that improves the operational efficiency, accelerate claim resolution, reduce leakage, and enhances customer satisfaction. So first, I will go through
+Partha Sen 0 minutes 51 seconds
+as a policyholder. So traditionally, what happens is Fanol processes are quite cumbersome for the customers, requiring lengthy forms and multiple follow-ups. At the same time, insurers often struggle with incomplete or inconsistent intake data.
+Partha Sen 1 minute 10 seconds
+So in this solution, as you can see over here, intelligent FNL, the policyholder can simply describe the incident using his or her voice or text. So I'll just record my voice.
+Partha Sen 1 minute 27 seconds
+There was a major burst in the kitchen last night. The water damaged the floor and cabinets.
+Partha Sen 1 minute 39 seconds
+So, I'll just make any kind of an addition, editing if required. My reply burst and I guess last night over damage the floor cabinets. OK, that's fine. And then, as soon as the narration is submitted, the AI automatically kind of identifies the incident as a property damage claim, and it tracks the...
+Partha Sen 1 minute 59 seconds
+key information such as this. So you can see over here is what you told us is basically what customer has kind of narrated as the loss and then why what the AI extracted from the description of the narration.
+Partha Sen 9 minutes 33 seconds
+Back to the last assessment page.
+Partha Sen 9 minutes 41 seconds
+and where the adjuster can move to the next transition to the next phase, which is approve or reject the claim or forward to SIU. So let's say the adjuster, so you can see that the AI kind of confirms that.
+Partha Sen 10 minutes
+The coverage policy is within coverage limits and fraudulent score is low. STP or the straight through classification is manual, even though the straight through processing or STP is.
+Partha Sen 10 minutes 15 seconds
+Um...
+Partha Sen 10 minutes 17 seconds
+is being suggested, but you know, we have given that option to have the human oversight for every decision. So human in the loop being considered even though AI recommended from pricing to reserve recommendation and repair replacement.
+Partha Sen 10 minutes 37 seconds
+So let's say the adjuster forwards to the SIU.
+Partha Sen 11 minutes
+So now claims with suspicious indicator inconsistencies automatically escalate to the SIU unit. So you can see over here it's a low, so it's not, it will not directly go to SIU by the system. It's being, the system is being built in a way that it, when the fraud indicator goes
+Partha Sen 11 minutes 20 seconds
+Beyond seventy-five percent, it automatically defaults by default escalate to the SIU investigation, but that by no means definite the system to kind of throw out the system to for the adjuster to not redirect to the SIU. As you can see, the adjuster forwarded this came to the...
+Partha Sen 11 minutes 42 seconds
+SIU, so when SIU logs in.
+Partha Sen 11 minutes 52 seconds
+The same claim is being forwarded to SIU, so it shows up on the SIU, the Special Investigation Unit portal, and I can see the timelines and the timeline structures. SIU has the option to kind of, so it's a seven days kind of an.
+Partha Sen 12 minutes 12 seconds
+SLA. However, the SIU at this point in time can ask for additional documents from the policyholder via a gister, schedule interview, trigger external verification.
+Partha Sen 12 minutes 32 seconds
+Kind of a thing, and but.
+Partha Sen 12 minutes 36 seconds
+For the interest of time, let's say the SIU unit kind of clears the claim, confirming that it's not a fraud transaction or the fraud claim, so...
+Partha Sen 12 minutes 51 seconds
+Once done.
+Partha Sen 12 minutes 54 seconds
+So, it will be complete from the SIU portal, as you can see, is completed when Agister logs back in and go to navigate to the follow my claims. So, since he has put some documentation from the customer, so...
+Partha Sen 13 minutes 13 seconds
+That's why I'd say spending with the customer. However, they say investigation cleared, written to register. So this kind of timelines or the latest actions are kind of being reflected over here. Back to assessment where the agister.
+Partha Sen 13 minutes 33 seconds
+moves to the transitions to the next stage based on the SIU clearance.
+Partha Sen 13 minutes 41 seconds
+Let's say he approves the claim.
+Partha Sen 13 minutes 45 seconds
+So, once approved.
+Partha Sen 13 minutes 49 seconds
+It goes to.
+Partha Sen 13 minutes 53 seconds
+You can see the it approves the claims and it is the approval mode is manual. The claim is approved.
+Partha Sen 14 minutes 3 seconds
+And the next thing is.
+Partha Sen 14 minutes 7 seconds
+Smart vendor match. So the idea of this smart vendor matching is like once
+Partha Sen 14 minutes 15 seconds
+The adjuster selects a particular claim.
+Partha Sen 14 minutes 24 seconds
+It automatically kind of selects the best AI recommended vendor with the match with the VIS score is 94%, which is the vendor intelligence score. So there are different factors considered for the VIS score, like a skill match of the vendor with the loss reported.
+Partha Sen 14 minutes 44 seconds
+So if there is a water kind of an issue, so it will be the vendors working for that. Vendor licensing, SLA performance, cost versus peer, capacity, rework rate, subrogation potential, SIV risk concentration. So those are the things.
+Partha Sen 15 minutes 3 seconds
+and the adjuster can't accept this recommendation.
+Partha Sen 15 minutes 9 seconds
+On the vendor intelligence, before approving the claim, there is also an option to ask for the drone verification for the to match the claim, the images of uploaded by the customer versus the drone imagery. And the AI also
+Partha Sen 15 minutes 31 seconds
+Will give a verification in terms of how much visual match or kind of an just special alignment, and with the verification summary, it also will say or confirm that the customer images are not AI generated, so, and based on the different like a...
+Partha Sen 15 minutes 52 seconds
+Defect detection, so, and if there is any discrepancies detected, the E.I. identifies that as well.
+Partha Sen 16 minutes 4 seconds
+So that was about the adjuster persona. So then there was the vendor persona.
+Partha Sen 16 minutes 12 seconds
+So on the vendor personnel, the ratio of is a vendor. In the vendor personnel, the vendor will be able to see the vendor dashboards, vendor directory, which vendors are active currently, go ahead and deactivate in some.
+Partha Sen 16 minutes 33 seconds
+cases where there is a poor SLA performance.
+Partha Sen 16 minutes 46 seconds
+So whatever is the deactivated vendors will be assignment eligibility will be automatically updated to know. Vendor onboarding, so there are different vendors, new vendors application that can be onboarded and that will show up on the pending approvals.
+Partha Sen 17 minutes 6 seconds
+And if it's approved by the vendor manager, then it will show up on the vendor directory. Let's say the true not structural, it's being approved or rejected. So let's say the vendor manager approves this one. So it will show up on.
+Partha Sen 17 minutes 25 seconds
+The vendor directory.
+Partha Sen 17 minutes 32 seconds
+So true, not true, true, not structural, right? So that's being approved. So that's the one that's just being approved. The vendor performance also kind of showcases the top five vendors and the vendor performance distribution and also the bottom 5 vendors.
+Partha Sen 17 minutes 51 seconds
+their vendor assignments.
+Partha Sen 17 minutes 55 seconds
+Um...
+Partha Sen 17 minutes 57 seconds
+Vendor risk and compliance cost.
+Partha Sen 18 minutes 1 second
+So here that will display what the vendors are active and what are the AI level signals. Some of the vendors might have cost exceeds that estimates. So that will be flagged. And some of the vendors might be
+Partha Sen 18 minutes 21 seconds
+needing the license review. So those will also be kind of swap over here. Vendor SLA tracker, so that will be sort of an displaying the what of the vendors are compliant, SLA compliant and which are at-risk vendors and what are the reason of those.
+Partha Sen 18 minutes 41 seconds
+the SLA bridge or the address vendors because of the SLA bridge or because of some other issues, maybe rework rate is high.
+Partha Sen 18 minutes 52 seconds
+The last thing that I would try to show is on the adjuster side is the document hub. So the document hub is kind of a one-stop solution to update as a centralized AI powered document workspace rather than a passive sort of a repository.
+Partha Sen 19 minutes 17 seconds
+So it classifies documents, extracts any kind of structural information. So as an adjuster, as a policyholder, of course, the view would be different between what policyholder will see in the documenter versus the adjuster.
+Partha Sen 19 minutes 34 seconds
+and any documents will be uploaded over here.
+Partha Sen 19 minutes 40 seconds
+That will.
+Partha Sen 19 minutes 45 seconds
+That will show up over here with the classification, like with the classified tag.
+Partha Sen 19 minutes 53 seconds
+Oh.
+Partha Sen 20 minutes 16 seconds
+Oops, sorry, so it's not working. So, but so there is some issues that's being worked on. But so the document hub, for example, after uploading any kind of an estimate, so there could be the estimates that the vendor could.
+Partha Sen 20 minutes 39 seconds
+vendor manager or the corresponding vendor estimates would be uploaded and
+Partha Sen 20 minutes 48 seconds
+All the repair costs, property areas, affected areas. So it is basically it's an all the documents kind of an available for that particular claim that will be over over there.
+Partha Sen 21 minutes 6 seconds
+So here is an example of the fire.
+Partha Sen 21 minutes 11 seconds
+fire claim, you know, the fire parallel claim and all the extracted information and the insights, the images, original, and some sort of in summary of whatever the drone verification showed up on the.
+Partha Sen 21 minutes 31 seconds
+verification intelligence screen.
+Partha Sen 21 minutes 35 seconds
+So, in a nutshell, it's this is an AI orchestrated property and motor claim solution, transforming the claims from an from an like a repetitive kind of process into a customer-centric experience.
+Partha Sen 21 minutes 55 seconds
+And across the claim life cycle, the platform enables the intelligent FNL, the AI driven verification, and the loss assessment, centralized document intelligence, AI assisted loss assessment, and the repair versus replacement guidance.
+Partha Sen 22 minutes 15 seconds
+proactive SIU investigation, intelligent vendor orchestration, and all this being the key features of any claim solutions, resulting in faster settlement, reduced operation costs, lower leakage, and improved customer experience.
+Partha Sen 22 minutes 34 seconds
+adjusted productivity. And more importantly, the solution keeps human at the center while augmenting with the AI-driven intelligence and automation. So that's all.
+Partha Sen 22 minutes 48 seconds
+Well, that's done.

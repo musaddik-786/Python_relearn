@@ -1,4 +1,4 @@
-So this intelligent ethanol, the overall agentic claim solution is an AI orchestrated claim solution designed for personal lines, PNC, Insurance. The objective of the solution is to transform the property claims and also motor claims to
+So this intelligent Fnol, the overall agentic claim solution is an AI orchestrated claim solution designed for personal lines, PNC, Insurance. The objective of the solution is to transform the property claims and also motor claims to
 Partha Sen 0 minutes 35 seconds
 from a fragmented reactive process into an intelligent, customer-centric experience that improves the operational efficiency, accelerate claim resolution, reduce leakage, and enhances customer satisfaction. So first, I will go through
 Partha Sen 0 minutes 51 seconds
@@ -131,3 +131,69 @@ Partha Sen 22 minutes 34 seconds
 adjusted productivity. And more importantly, the solution keeps human at the center while augmenting with the AI-driven intelligence and automation. So that's all.
 Partha Sen 22 minutes 48 seconds
 Well, that's done.
+
+
+
+
+here it is sample of few scripts refer this and crearte a script from the above transcript
+Meet our Fleet Manager, logging in to the platform and landing on the Home Page, where he
+gets an overview of tasks based on his role. Since he is a Fleet Manager, it shows the tasks he needs to focus on today. He can also create a task.
+He goes to the Client Management page, where he can create new client and can view the client’s details, where he can see the Total Associated Fleets.
+If required, he can also remove the client.
+He then proceeds to Carrier Management Page where he can create a new carrier and can
+view the carrier details, where Total Associated Products, details can be viewed.
+If required, he can also remove the carrier.
+Similarly, under Product Management, he can view all the products and can add, remove, or edit a product if required.
+He views the list of products to see all product-related details and associated technical covers.
+He clicks on Edit Product, where he can update product-related details, and add or remove technical covers if required.
+Now, he begins with Fleet. He can create a new fleet and assign Vehicle and Driver and add multiple Coverages.
+Now He proceeds with Managing the Fleet, where he can adds or remove vehicles and drivers,and Coverages if required.
+He then searches for Uber, and clicks on the View Fleet icon for Uber East Coast Fleet 2 to view the fleet details.
+He now clicks on Carrier Recommendation, where an AI-driven model predicts and recommends the best Carrier Match as per the client’s fleet requirements.
+He can now add the corresponding Frame Contract from here or from the Frame Contract Management screen.
+He proceeds to create a Frame Contract, where he selects:
+Client Name: Uber Technologies
+Carrier Name: AXA XL
+Contract Type: Standard
+Along with other basic details, including the AON Personnel associated with the contract,.
+He fills in the Financial Terms like commission rate and other necessary details. 
+and, now heads to the Matching Products & Fleets tab, where the AI-driven logic pulls the products matching the client and carrier names and other criteria.
+
+He selects the product AXA Standard EU Medium Fleet, and the corresponding Technical Coverages appear.
+He can add a new technical cover or delete one if required.
+Matching Fleets also appear.
+He selects one or more matching fleets and completes contract creation by clicking Create Frame Contract.
+He can view all the Frame Contract details, and also edit or remove them if required.
+Now, proceeds with Vehicle Management, where he can Add and Remove single Vehicle and can also Import multiple Vehicles using an AI-Driven Model which accepts files in any format and shows an Import Preview before uploading the vehicles.
+He also has the option to bulk-delete vehicles.
+Now, he proceeds with Driver Management where he can Add and remove single Driver and can bulk upload and bulk-delete Drivers.
+He now goes to the Reporting Dashboard, as he wants to view details related to:
+Profitability
+Coverage Distribution
+Premium Performance Reports
+He also views AI Analytics that provide analytical insights like:
+Profitability Forecast
+Renewal Likelihood
+AI-Detected Risk Indicators such as:
+Whether the client is expanding in high-risk zones and the potential exposure and probability.
+Financial impact and probability due to increased weather-related claims.
+Potential policy cancellation rate due to new competitor offerings.
+From client management to contract creation and advanced reporting, the Fleet Manager now operates with precision, insight, and speed—powered by a platform built for smarter decisions.
+
+
+sample 2 
+What if every claims KPI, every dashboard, and every insight you need was right here, in one cockpit? No more switching tabs, no more searching. Just simple, dynamic and completely transparent.
+Context
+Insurers today face a fundamental challenge - fragmented claims systems that slow processes, create inefficiencies, and erode customer satisfaction. The Claims Cockpit addresses these issues by consolidating all KPIs and OKRs into a single, intelligent platform. The items highlighted in deep blue represent active KPIs, while teams can easily select or deselect metrics to view the dashboards most relevant to their goals. Built for flexibility, it ensures clarity at every step of the claims journey.
+The Executive Summary dashboard provides an immediate view of claim volumes, pending tasks, and key metrics. Users can toggle between chart and data views and apply filters by selecting ‘Zone’, ‘line of business’, etc. The experience is clean, streamlined, and role-based, ensuring every user sees what is most important to their function.
+ Considering the Important OKR’s panel. Our claims satisfaction target is 95% - current performance stands at 97%, exceeding expectations. Average settlement time is targeted at 15 days, while the actual is 18.6, signaling an area for improvement. First-call resolution, with a 90% target, is tracked at 87%, flagged as amber. The panel color-codes outcomes to indicate which metrics are on track, behind, or at risk, providing executives with a snapshot of overall performance at a glance.
+ The Cockpit includes a dynamic dashboard powered by a prompt library. Now as per the selected zone immediate insights are generated: the Northeast reports the highest claim volume, the Midwest remains stable, and the South leads overall. Comparative analysis by month highlights patterns and emerging risks, eliminating the need for manual reporting.
+ At the management level, the system compares settlement ratios across claim managers. With a single selection, it reveals the Best performers, Highest Volume leaders, and areas requiring support - an invaluable tool for reviews and coaching.
+ Filters applied from one view are retained across others. For example, if a zone filter is applied in the Executive Summary, it remains active when navigating to Financial Performance, ensuring continuity of context.
+Metrics can be configured to match organizational priorities. For example, from the List of KPI’s and OKR’s Loss Ratio can be replaced with Combined Ratio, Expense Ratio, or Reserve Adequacy. The dashboard refreshes immediately, ensuring leadership teams monitor exactly what matters most.
+ Moving on to Turn around and Processing Time section Selecting a specific manager, such as Emily, reveals details on her team - average processing times, average settlement time, First Notice to Closure Rate and Reopened Claims Processing Time. Clearing the filter collapses the view, but the data remains available for deeper exploration. This provides actionable insights at both the macro and micro level.
+The Cockpit extends across multiple dimensions, including Legal, Actuarial, Customer Experience, Recovery Efficiency, Claim Quality, Delegated Authority, and File Management KPIs. The framework is fully customizable, ensuring alignment with evolving business needs.
+The Claims Cockpit is more than a dashboard - it is a performance transformation platform. By enabling faster settlements, clear visibility, and stronger customer experiences, it empowers insurers to elevate claims management from an operational necessity to a competitive differentiator.
+
+
+

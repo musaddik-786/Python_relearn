@@ -1,199 +1,48 @@
-So this intelligent Fnol, the overall agentic claim solution is an AI orchestrated claim solution designed for personal lines, PNC, Insurance. The objective of the solution is to transform the property claims and also motor claims to
-Partha Sen 0 minutes 35 seconds
-from a fragmented reactive process into an intelligent, customer-centric experience that improves the operational efficiency, accelerate claim resolution, reduce leakage, and enhances customer satisfaction. So first, I will go through
-Partha Sen 0 minutes 51 seconds
-as a policyholder. So traditionally, what happens is Fanol processes are quite cumbersome for the customers, requiring lengthy forms and multiple follow-ups. At the same time, insurers often struggle with incomplete or inconsistent intake data.
-Partha Sen 1 minute 10 seconds
-So in this solution, as you can see over here, intelligent FNL, the policyholder can simply describe the incident using his or her voice or text. So I'll just record my voice.
-Partha Sen 1 minute 27 seconds
-There was a major burst in the kitchen last night. The water damaged the floor and cabinets.
-Partha Sen 1 minute 39 seconds
-So, I'll just make any kind of an addition, editing if required. My reply burst and I guess last night over damage the floor cabinets. OK, that's fine. And then, as soon as the narration is submitted, the AI automatically kind of identifies the incident as a property damage claim, and it tracks the...
-Partha Sen 1 minute 59 seconds
-key information such as this. So you can see over here is what you told us is basically what customer has kind of narrated as the loss and then why what the AI extracted from the description of the narration.
-Partha Sen 9 minutes 33 seconds
-Back to the last assessment page.
-Partha Sen 9 minutes 41 seconds
-and where the adjuster can move to the next transition to the next phase, which is approve or reject the claim or forward to SIU. So let's say the adjuster, so you can see that the AI kind of confirms that.
-Partha Sen 10 minutes
-The coverage policy is within coverage limits and fraudulent score is low. STP or the straight through classification is manual, even though the straight through processing or STP is.
-Partha Sen 10 minutes 15 seconds
-Um...
-Partha Sen 10 minutes 17 seconds
-is being suggested, but you know, we have given that option to have the human oversight for every decision. So human in the loop being considered even though AI recommended from pricing to reserve recommendation and repair replacement.
-Partha Sen 10 minutes 37 seconds
-So let's say the adjuster forwards to the SIU.
-Partha Sen 11 minutes
-So now claims with suspicious indicator inconsistencies automatically escalate to the SIU unit. So you can see over here it's a low, so it's not, it will not directly go to SIU by the system. It's being, the system is being built in a way that it, when the fraud indicator goes
-Partha Sen 11 minutes 20 seconds
-Beyond seventy-five percent, it automatically defaults by default escalate to the SIU investigation, but that by no means definite the system to kind of throw out the system to for the adjuster to not redirect to the SIU. As you can see, the adjuster forwarded this came to the...
-Partha Sen 11 minutes 42 seconds
-SIU, so when SIU logs in.
-Partha Sen 11 minutes 52 seconds
-The same claim is being forwarded to SIU, so it shows up on the SIU, the Special Investigation Unit portal, and I can see the timelines and the timeline structures. SIU has the option to kind of, so it's a seven days kind of an.
-Partha Sen 12 minutes 12 seconds
-SLA. However, the SIU at this point in time can ask for additional documents from the policyholder via a gister, schedule interview, trigger external verification.
-Partha Sen 12 minutes 32 seconds
-Kind of a thing, and but.
-Partha Sen 12 minutes 36 seconds
-For the interest of time, let's say the SIU unit kind of clears the claim, confirming that it's not a fraud transaction or the fraud claim, so...
-Partha Sen 12 minutes 51 seconds
-Once done.
-Partha Sen 12 minutes 54 seconds
-So, it will be complete from the SIU portal, as you can see, is completed when Agister logs back in and go to navigate to the follow my claims. So, since he has put some documentation from the customer, so...
-Partha Sen 13 minutes 13 seconds
-That's why I'd say spending with the customer. However, they say investigation cleared, written to register. So this kind of timelines or the latest actions are kind of being reflected over here. Back to assessment where the agister.
-Partha Sen 13 minutes 33 seconds
-moves to the transitions to the next stage based on the SIU clearance.
-Partha Sen 13 minutes 41 seconds
-Let's say he approves the claim.
-Partha Sen 13 minutes 45 seconds
-So, once approved.
-Partha Sen 13 minutes 49 seconds
-It goes to.
-Partha Sen 13 minutes 53 seconds
-You can see the it approves the claims and it is the approval mode is manual. The claim is approved.
-Partha Sen 14 minutes 3 seconds
-And the next thing is.
-Partha Sen 14 minutes 7 seconds
-Smart vendor match. So the idea of this smart vendor matching is like once
-Partha Sen 14 minutes 15 seconds
-The adjuster selects a particular claim.
-Partha Sen 14 minutes 24 seconds
-It automatically kind of selects the best AI recommended vendor with the match with the VIS score is 94%, which is the vendor intelligence score. So there are different factors considered for the VIS score, like a skill match of the vendor with the loss reported.
-Partha Sen 14 minutes 44 seconds
-So if there is a water kind of an issue, so it will be the vendors working for that. Vendor licensing, SLA performance, cost versus peer, capacity, rework rate, subrogation potential, SIV risk concentration. So those are the things.
-Partha Sen 15 minutes 3 seconds
-and the adjuster can't accept this recommendation.
-Partha Sen 15 minutes 9 seconds
-On the vendor intelligence, before approving the claim, there is also an option to ask for the drone verification for the to match the claim, the images of uploaded by the customer versus the drone imagery. And the AI also
-Partha Sen 15 minutes 31 seconds
-Will give a verification in terms of how much visual match or kind of an just special alignment, and with the verification summary, it also will say or confirm that the customer images are not AI generated, so, and based on the different like a...
-Partha Sen 15 minutes 52 seconds
-Defect detection, so, and if there is any discrepancies detected, the E.I. identifies that as well.
-Partha Sen 16 minutes 4 seconds
-So that was about the adjuster persona. So then there was the vendor persona.
-Partha Sen 16 minutes 12 seconds
-So on the vendor personnel, the ratio of is a vendor. In the vendor personnel, the vendor will be able to see the vendor dashboards, vendor directory, which vendors are active currently, go ahead and deactivate in some.
-Partha Sen 16 minutes 33 seconds
-cases where there is a poor SLA performance.
-Partha Sen 16 minutes 46 seconds
-So whatever is the deactivated vendors will be assignment eligibility will be automatically updated to know. Vendor onboarding, so there are different vendors, new vendors application that can be onboarded and that will show up on the pending approvals.
-Partha Sen 17 minutes 6 seconds
-And if it's approved by the vendor manager, then it will show up on the vendor directory. Let's say the true not structural, it's being approved or rejected. So let's say the vendor manager approves this one. So it will show up on.
-Partha Sen 17 minutes 25 seconds
-The vendor directory.
-Partha Sen 17 minutes 32 seconds
-So true, not true, true, not structural, right? So that's being approved. So that's the one that's just being approved. The vendor performance also kind of showcases the top five vendors and the vendor performance distribution and also the bottom 5 vendors.
-Partha Sen 17 minutes 51 seconds
-their vendor assignments.
-Partha Sen 17 minutes 55 seconds
-Um...
-Partha Sen 17 minutes 57 seconds
-Vendor risk and compliance cost.
-Partha Sen 18 minutes 1 second
-So here that will display what the vendors are active and what are the AI level signals. Some of the vendors might have cost exceeds that estimates. So that will be flagged. And some of the vendors might be
-Partha Sen 18 minutes 21 seconds
-needing the license review. So those will also be kind of swap over here. Vendor SLA tracker, so that will be sort of an displaying the what of the vendors are compliant, SLA compliant and which are at-risk vendors and what are the reason of those.
-Partha Sen 18 minutes 41 seconds
-the SLA bridge or the address vendors because of the SLA bridge or because of some other issues, maybe rework rate is high.
-Partha Sen 18 minutes 52 seconds
-The last thing that I would try to show is on the adjuster side is the document hub. So the document hub is kind of a one-stop solution to update as a centralized AI powered document workspace rather than a passive sort of a repository.
-Partha Sen 19 minutes 17 seconds
-So it classifies documents, extracts any kind of structural information. So as an adjuster, as a policyholder, of course, the view would be different between what policyholder will see in the documenter versus the adjuster.
-Partha Sen 19 minutes 34 seconds
-and any documents will be uploaded over here.
-Partha Sen 19 minutes 40 seconds
-That will.
-Partha Sen 19 minutes 45 seconds
-That will show up over here with the classification, like with the classified tag.
-Partha Sen 19 minutes 53 seconds
-Oh.
-Partha Sen 20 minutes 16 seconds
-Oops, sorry, so it's not working. So, but so there is some issues that's being worked on. But so the document hub, for example, after uploading any kind of an estimate, so there could be the estimates that the vendor could.
-Partha Sen 20 minutes 39 seconds
-vendor manager or the corresponding vendor estimates would be uploaded and
-Partha Sen 20 minutes 48 seconds
-All the repair costs, property areas, affected areas. So it is basically it's an all the documents kind of an available for that particular claim that will be over over there.
-Partha Sen 21 minutes 6 seconds
-So here is an example of the fire.
-Partha Sen 21 minutes 11 seconds
-fire claim, you know, the fire parallel claim and all the extracted information and the insights, the images, original, and some sort of in summary of whatever the drone verification showed up on the.
-Partha Sen 21 minutes 31 seconds
-verification intelligence screen.
-Partha Sen 21 minutes 35 seconds
-So, in a nutshell, it's this is an AI orchestrated property and motor claim solution, transforming the claims from an from an like a repetitive kind of process into a customer-centric experience.
-Partha Sen 21 minutes 55 seconds
-And across the claim life cycle, the platform enables the intelligent FNL, the AI driven verification, and the loss assessment, centralized document intelligence, AI assisted loss assessment, and the repair versus replacement guidance.
-Partha Sen 22 minutes 15 seconds
-proactive SIU investigation, intelligent vendor orchestration, and all this being the key features of any claim solutions, resulting in faster settlement, reduced operation costs, lower leakage, and improved customer experience.
-Partha Sen 22 minutes 34 seconds
-adjusted productivity. And more importantly, the solution keeps human at the center while augmenting with the AI-driven intelligence and automation. So that's all.
-Partha Sen 22 minutes 48 seconds
-Well, that's done.
+FNOL processes are lengthy and cumbersome, requiring customers to fill out complex forms and follow up multiple times, while insurers struggle with incomplete or inconsistent intake data. The solution begins with the Policyholder experience, where the customer can initiate a claim through an Intelligent FNOL interface.
+
+With this AI-orchestrated claims solution, the policyholder simply describes the incident using voice or text. In this example, the customer reports stating There was a major burst pipe in the kitchen that damaged the floor and cabinets. As soon as the narration is submitted, the AI automatically identifies the incident as a property damage claim and extracts insights and system immediately presents a structured key details of what the customer reported along with the cause of loss, affected areas, incident timeline, and severity indicators. Along with policy information that is autofilled from the policy admin system. Now clicking on confirm and continue
+
+This creates a faster, more accurate, and customer-friendly FNOL experience while reducing manual intake efforts for the insurer.
+Before submission there is an intake validation from the system by asking contexual questions, once done policyholder can upload an image or videos as an evidence.
+Prefilled FNOL report will be generated with corresponding sections, now he can review and confirm the AI fields to submit the FNOL, after which claims number is generated.
+Tracking claims would enable policy holder to see the interactive claim journey he can raise any concerns if required which flows to the adjuster.
+
+The claim is then routed to the Adjuster Portal, where the adjuster can see claims related insights and he clicks on follow my claims to see all the claims that have to be reviewed opening the particular claim gives an insights related to customer and he can request more information schedule interview or respond to escalation, Now adjuster opens loss adjustments page where he gets detailed insights of customer documents, verification insights, vendor assigned if any, also he can directly go to the document hub to view documents and system automatically classifies it providing insights, here he can approve or reject the documents that has been provided, and the adjuster can conclude the Intake validation, now the claim moves to loss Investigation stage , now the adjuster completes the investigation to move forward and any point in time he can ask for additional documents from the Policyholder, the AI-assisted assessment. Here, the platform validates coverage eligibility, evaluates fraud indicators, and recommends reserve amounts, repair-versus-replacement guidance, and settlement recommendations.
 
 
 
 
-here it is sample of few scripts refer this and crearte a script from the above transcript
-Meet our Fleet Manager, logging in to the platform and landing on the Home Page, where he
-gets an overview of tasks based on his role. Since he is a Fleet Manager, it shows the tasks he needs to focus on today. He can also create a task.
-He goes to the Client Management page, where he can create new client and can view the client’s details, where he can see the Total Associated Fleets.
-If required, he can also remove the client.
-He then proceeds to Carrier Management Page where he can create a new carrier and can
-view the carrier details, where Total Associated Products, details can be viewed.
-If required, he can also remove the carrier.
-Similarly, under Product Management, he can view all the products and can add, remove, or edit a product if required.
-He views the list of products to see all product-related details and associated technical covers.
-He clicks on Edit Product, where he can update product-related details, and add or remove technical covers if required.
-Now, he begins with Fleet. He can create a new fleet and assign Vehicle and Driver and add multiple Coverages.
-Now He proceeds with Managing the Fleet, where he can adds or remove vehicles and drivers,and Coverages if required.
-He then searches for Uber, and clicks on the View Fleet icon for Uber East Coast Fleet 2 to view the fleet details.
-He now clicks on Carrier Recommendation, where an AI-driven model predicts and recommends the best Carrier Match as per the client’s fleet requirements.
-He can now add the corresponding Frame Contract from here or from the Frame Contract Management screen.
-He proceeds to create a Frame Contract, where he selects:
-Client Name: Uber Technologies
-Carrier Name: AXA XL
-Contract Type: Standard
-Along with other basic details, including the AON Personnel associated with the contract,.
-He fills in the Financial Terms like commission rate and other necessary details. 
-and, now heads to the Matching Products & Fleets tab, where the AI-driven logic pulls the products matching the client and carrier names and other criteria.
+Now he moves to AI-assisted Loss assessment for that particular claim running the AI analysis generates a summary of loss, deductible, amount and more displaying loss calculation engine and repair versus replacement recommendation. The same section gives a delayed view of the recommendation for repair and replacement. Moving back to loss assessment and Running AI analysis for AI to recommend approval or rejection so as the fraud indicator detects low, so it will not directly redirected to SIU, Although the platform supports Straight Through Processing, or STP, human oversight remains central to the process. Even when the AI recommends automated approval, the adjuster retains full authority to approve, reject, or escalate the claim for further investigation. If suspicious indicators or inconsistencies are detected, the claim can be escalated to the Special Investigation Unit, or SIU. Claims with fraud scores above the defined threshold are automatically flagged for SIU review, though adjusters can manually escalate any claim when necessary.  Here, the platform validates coverage eligibility, evaluates fraud indicators, and recommends reserve amounts, repair-versus-replacement guidance, and settlement recommendations.
 
-He selects the product AXA Standard EU Medium Fleet, and the corresponding Technical Coverages appear.
-He can add a new technical cover or delete one if required.
-Matching Fleets also appear.
-He selects one or more matching fleets and completes contract creation by clicking Create Frame Contract.
-He can view all the Frame Contract details, and also edit or remove them if required.
-Now, proceeds with Vehicle Management, where he can Add and Remove single Vehicle and can also Import multiple Vehicles using an AI-Driven Model which accepts files in any format and shows an Import Preview before uploading the vehicles.
-He also has the option to bulk-delete vehicles.
-Now, he proceeds with Driver Management where he can Add and remove single Driver and can bulk upload and bulk-delete Drivers.
-He now goes to the Reporting Dashboard, as he wants to view details related to:
-Profitability
-Coverage Distribution
-Premium Performance Reports
-He also views AI Analytics that provide analytical insights like:
-Profitability Forecast
-Renewal Likelihood
-AI-Detected Risk Indicators such as:
-Whether the client is expanding in high-risk zones and the potential exposure and probability.
-Financial impact and probability due to increased weather-related claims.
-Potential policy cancellation rate due to new competitor offerings.
-From client management to contract creation and advanced reporting, the Fleet Manager now operates with precision, insight, and speed—powered by a platform built for smarter decisions.
+Once forwarded, the claim appears in the SIU portal, after loging in investigators can review claim timelines, request additional documentation, schedule interviews, or trigger external verification processes. The system also tracks SLA timelines to ensure investigations remain within compliance windows.
 
+After review, the SIU can clear the claim and return it to the adjuster for further processing. Throughout this process, claim statuses, investigation outcomes, and pending customer actions are continuously updated and reflected across the platform.
 
-sample 2 
-What if every claims KPI, every dashboard, and every insight you need was right here, in one cockpit? No more switching tabs, no more searching. Just simple, dynamic and completely transparent.
-Context
-Insurers today face a fundamental challenge - fragmented claims systems that slow processes, create inefficiencies, and erode customer satisfaction. The Claims Cockpit addresses these issues by consolidating all KPIs and OKRs into a single, intelligent platform. The items highlighted in deep blue represent active KPIs, while teams can easily select or deselect metrics to view the dashboards most relevant to their goals. Built for flexibility, it ensures clarity at every step of the claims journey.
-The Executive Summary dashboard provides an immediate view of claim volumes, pending tasks, and key metrics. Users can toggle between chart and data views and apply filters by selecting ‘Zone’, ‘line of business’, etc. The experience is clean, streamlined, and role-based, ensuring every user sees what is most important to their function.
- Considering the Important OKR’s panel. Our claims satisfaction target is 95% - current performance stands at 97%, exceeding expectations. Average settlement time is targeted at 15 days, while the actual is 18.6, signaling an area for improvement. First-call resolution, with a 90% target, is tracked at 87%, flagged as amber. The panel color-codes outcomes to indicate which metrics are on track, behind, or at risk, providing executives with a snapshot of overall performance at a glance.
- The Cockpit includes a dynamic dashboard powered by a prompt library. Now as per the selected zone immediate insights are generated: the Northeast reports the highest claim volume, the Midwest remains stable, and the South leads overall. Comparative analysis by month highlights patterns and emerging risks, eliminating the need for manual reporting.
- At the management level, the system compares settlement ratios across claim managers. With a single selection, it reveals the Best performers, Highest Volume leaders, and areas requiring support - an invaluable tool for reviews and coaching.
- Filters applied from one view are retained across others. For example, if a zone filter is applied in the Executive Summary, it remains active when navigating to Financial Performance, ensuring continuity of context.
-Metrics can be configured to match organizational priorities. For example, from the List of KPI’s and OKR’s Loss Ratio can be replaced with Combined Ratio, Expense Ratio, or Reserve Adequacy. The dashboard refreshes immediately, ensuring leadership teams monitor exactly what matters most.
- Moving on to Turn around and Processing Time section Selecting a specific manager, such as Emily, reveals details on her team - average processing times, average settlement time, First Notice to Closure Rate and Reopened Claims Processing Time. Clearing the filter collapses the view, but the data remains available for deeper exploration. This provides actionable insights at both the macro and micro level.
-The Cockpit extends across multiple dimensions, including Legal, Actuarial, Customer Experience, Recovery Efficiency, Claim Quality, Delegated Authority, and File Management KPIs. The framework is fully customizable, ensuring alignment with evolving business needs.
-The Claims Cockpit is more than a dashboard - it is a performance transformation platform. By enabling faster settlements, clear visibility, and stronger customer experiences, it empowers insurers to elevate claims management from an operational necessity to a competitive differentiator.
+Once the investigation is cleared, the adjuster logs in and views latest actions of that particular claim and in loss assessment he proceeds with claim approval. The platform confirms coverage limits, fraud assessment outcomes, and approval decisions while maintaining a complete audit trail of human and AI-assisted actions.
 
+Following approval, the system activates Smart Vendor Matching. Using AI-driven Vendor Intelligence Scores, the platform automatically recommends the most suitable vendor for the repair work. The recommendation considers multiple factors, including skill specialization, licensing compliance, SLA performance, cost versus peer, capacity, rework rates, subrogation potential, and more.
 
+The adjuster can accept the AI recommendation or manually select another vendor if required.
+
+The platform also supports Drone Verification Intelligence. Before final approval, adjusters can compare customer-uploaded images with drone imagery to validate the extent of the damage. AI-driven visual verification confirms alignment, detects discrepancies, identifies structural defects, and even validates whether uploaded images are authentic and not AI-generated.
+
+Next, the experience moves to the Vendor Management Portal. Vendor managers can monitor active vendors, manage onboarding requests, approve or reject new vendor applications, and track vendor performance across multiple dimensions.
+
+The platform provides visibility into vendor SLA compliance, cost deviations, rework rates, licensing risks, and operational performance. Vendors with poor performance or compliance concerns can be automatically flagged or deactivated, ensuring only qualified vendors remain eligible for assignments.
+New Vendors can also be onboarded and can be approved.
+
+The Vendor Performance Dashboard highlights top-performing vendors, identifies at-risk vendors, and provides AI-generated operational insights to support smarter vendor governance decisions.
+Vendors assignments section provides assignment details.
+Risk and Compliance displays active vendors and AI signals, suspicious billing patterns, License validation of vendors.
+Moving to Vendor SLA tracker screen , displays SLA compliant vendors and the reason.  
+
+Another key capability is the AI-powered Document Hub. Rather than functioning as a passive repository, the Document Hub acts as a centralized intelligent workspace for all claim-related documentation.
+
+Documents uploaded by policyholders, vendors, or adjusters are automatically classified, tagged, and processed using AI-powered extraction models. The platform extracts structured information such as repair estimates, affected property areas, costs, inspection findings, and supporting evidence.
+
+Adjusters can instantly access claim summaries, extracted insights, original images, drone verification outputs, and document intelligence from a single interface, significantly reducing manual review efforts and improving claim transparency.
+
+In summary, this AI-orchestrated property and motor claims solution transforms the traditional claims lifecycle into an intelligent, customer-centric experience. The platform combines Intelligent FNOL, AI-assisted assessment, proactive SIU investigation, centralized document intelligence, smart vendor orchestration, and automated verification capabilities into a unified ecosystem.
+
+The result is faster settlements, reduced operational costs, lower claims leakage, improved adjuster productivity, and enhanced customer satisfaction — all while ensuring humans remain at the center of every critical decision, augmented by AI-driven intelligence and automation.
 
